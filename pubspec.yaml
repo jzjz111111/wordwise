@@ -34,7 +34,32 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-
+  flutter_riverpod: ^2.5.1
+  # 作用：状态管理框架，基于 Provider 的升级版
+  riverpod_annotation: ^2.3.5
+  # 作用：配合 riverpod_generator，用注解自动生成 Provider 代码
+  go_router: ^14.2.0
+  # 作用：声明式路由管理
+  sqflite: ^2.3.0
+  # 作用：SQLite 数据库操作
+  path_provider: ^2.1.0
+  # 作用：获取手机存储路径（数据库文件存哪）
+  path: ^1.9.0
+  # 作用：跨平台路径拼接，比如 join('db', 'words.db')
+  dio: ^5.4.0
+  # 作用：HTTP 客户端
+  logger: ^2.0.1
+  # 作用：控制台漂亮打印日志，调试必备
+  supabase_flutter: ^2.5.0
+  # 作用：集成 Supabase（认证 + 数据库）
+  flutter_local_notifications: ^17.0.0
+  # 作用：本地通知
+  fl_chart: ^0.68.0
+  # 作用：绘制图表（折线图、饼图）
+  shimmer: ^3.0.0
+  # 作用：骨架屏加载动画，弱网优化
+  flutter_tts: ^3.8.0
+  # 作用：文字转语音（发音功能
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -44,6 +69,12 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
+  build_runner: ^2.4.8
+  # 作用：运行代码生成器
+  riverpod_generator: ^2.4.0
+  # 作用：自动生成 Riverpod Provider
+  json_serializable: ^6.7.1
+  # 作用：自动生成 JSON 序列化代码（fromJson/toJson）
   flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
