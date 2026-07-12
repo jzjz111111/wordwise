@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shimmer/main.dart';
+import 'features/study/presentation/screens/home_screen.dart';
 import 'core/router/app_router.dart';
+import 'core/database/database_helper.dart';
 
-void main(){
-  // ProviderScope 是 Riverpod 的状态容器，它会在内存中创建一个“状态树”，所有 Provider 的数据都存储在这里
+void main() async{
+  // 确保 Widgets 绑定初始化
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化数据库并插入示例单词
+  final dbHelper = DatabaseHelper.instance;
+  await dbHelper.insertInitialWords();
   runApp(const ProviderScope(child: MyApp()));
-
 }
 
-class MyApp extends StatelessWidget{
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context){
-
-    // MaterialApp.router是专门配合GoRouter使用的入口
-    // 把 appRouter 传进 routerConfig，GoRouter 就接管了所有路由
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'WordWise 背单词',
       theme: ThemeData(

@@ -1,0 +1,168 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/study_provider.dart';
+import 'study_screen.dart';
+
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 监听统计数据
+    final statsAsync = ref.watch(todayStatsProvider);
+    // 监听单词列表（用于判断是否有词可学）
+    final wordsAsync = ref.watch(todayWordsProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('📚 WordWise'),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题
+            const Text(
+              '今日学习',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '坚持每一天，词汇量自然增长',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // 统计卡片
+            statsAsync.when(
+              data: (stats) => _buildStatsGrid(stats),
+              loading: () => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              error: (err, stack) => Center(
+                child: Text('加载失败: $err'),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // 开始学习按钮
+            wordsAsync.when(
+              data: (words) => SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: words.isEmpty
+                      ? null
+                      : () {
+                    // 跳转到学习页面
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const StudyScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text(
+                    words.isEmpty
+                        ? '🎉 今日已完成！'
+                        : '🚀 开始学习 (${words.length} 个)',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              loading: () => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              error: (err, stack) => Center(
+                child: Text('加载失败: $err'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 统计卡片网格
+  Widget _buildStatsGrid(Map<String, int> stats) {
+    return Row(
+      children: [
+        _buildStatCard(
+          label: '待复习',
+          value: stats['todayReview'] ?? 0,
+          color: Colors.orange,
+        ),
+        const SizedBox(width: 16),
+        _buildStatCard(
+          label: '已掌握',
+          value: stats['mastered'] ?? 0,
+          color: Colors.green,
+        ),
+        const SizedBox(width: 16),
+        _buildStatCard(
+          label: '总词汇',
+          value: stats['total'] ?? 0,
+          color: Colors.blue,
+        ),
+      ],
+    );
+  }
+
+  /// 单个统计卡片
+  Widget _buildStatCard({
+    required String label,
+    required int value,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withOpacity(0.3),
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value.toString(),
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
