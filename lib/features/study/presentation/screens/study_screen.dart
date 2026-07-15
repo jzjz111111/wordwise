@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/study_provider.dart';
 import '../../domain/entities/word.dart';
 import 'spell_test_screen.dart';
+import 'choice_test_screen.dart';
 
 class StudyScreen extends ConsumerStatefulWidget {
   const StudyScreen({super.key});
@@ -117,6 +118,26 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                 ),
               ),
               child: const Text('✍️ 拼写测试'),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChoiceTestScreen(
+                      words: state.words,
+                    ),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('📝 选择题测试'),
             ),
             const SizedBox(height: 12),
             ElevatedButton(
