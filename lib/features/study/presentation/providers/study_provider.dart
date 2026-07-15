@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/word.dart';
 import '../../domain/repositories/word_repository.dart';
 import '../../data/repositories/word_repository_impl.dart';
+import 'word_category_provider.dart';
 
 /// 提供 WordRepository 实例（全局单例）
 final wordRepositoryProvider = Provider<WordRepository>((ref) {
@@ -11,13 +12,15 @@ final wordRepositoryProvider = Provider<WordRepository>((ref) {
 /// 提供今日单词列表（异步加载）
 final todayWordsProvider = FutureProvider<List<Word>>((ref) async {
   final repository = ref.watch(wordRepositoryProvider);
-  return await repository.getTodayReviewWords();
+  final category = ref.watch(currentCategoryProvider);
+  return await repository.getTodayReviewWords(category: category);
 });
 
 /// 提供今日统计数据（异步加载）
 final todayStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   final repository = ref.watch(wordRepositoryProvider);
-  return await repository.getTodayStats();
+  final category = ref.watch(currentCategoryProvider);
+  return await repository.getTodayStats(category: category);
 });
 
 /// 学习状态提供者（管理当前学习进度）

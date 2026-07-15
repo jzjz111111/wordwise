@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/study_provider.dart';
 import 'study_screen.dart';
+import '../providers/word_category_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class HomeScreen extends ConsumerWidget {
         centerTitle: true,
         elevation: 0,
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -41,6 +43,40 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 32),
+            // 单词库选择
+            Consumer(
+              builder: (context, ref, child) {
+                final categories = ref.watch(categoriesProvider);
+                final currentCategory = ref.watch(currentCategoryProvider);
+
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: categories.map((cat) {
+                      final isSelected = cat['id'] == currentCategory;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text('${cat['icon']} ${cat['name']}'),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              ref.read(currentCategoryProvider.notifier).state = cat['id']!;
+                              // 刷新数据
+                              ref.invalidate(todayWordsProvider);
+                              ref.invalidate(todayStatsProvider);
+                            }
+                          },
+                          backgroundColor: Colors.grey[200],
+                          selectedColor: Colors.blue[100],
+                          checkmarkColor: Colors.blue,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
 
             // 统计卡片
             statsAsync.when(
@@ -136,10 +172,10 @@ class HomeScreen extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withAlpha(26),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: color.withOpacity(0.3),
+            color:color.withAlpha(78),
           ),
         ),
         child: Column(

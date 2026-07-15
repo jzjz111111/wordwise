@@ -51,7 +51,8 @@ class DatabaseHelper {
         meaning TEXT NOT NULL,
         phonetic_uk TEXT,
         phonetic_us TEXT,
-        example TEXT
+        example TEXT,
+        category TEXT DEFAULT 'cet4'
       )
     ''');
 
@@ -75,6 +76,9 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // 如果将来需要添加新表或修改表结构，在这里处理
     // 例如：await db.execute('ALTER TABLE words ADD COLUMN example TEXT');
+    if(oldVersion<2){
+      await db.execute('ALTER TABLE words ADD COLUMN category TEXT DEFAULT "cet4"');
+    }
   }
 
   // 8. 插入初始数据（可选）
@@ -92,35 +96,40 @@ class DatabaseHelper {
         'meaning': '放弃；遗弃',
         'phonetic_uk': '/əˈbændən/',
         'phonetic_us': '/əˈbændən/',
-        'example': 'He abandoned his car in the snow.'
+        'example': 'He abandoned his car in the snow.',
+        'category':'cet4'
       },
       {
         'word': 'brilliant',
         'meaning': '聪明的；辉煌的',
         'phonetic_uk': '/ˈbrɪliənt/',
         'phonetic_us': '/ˈbrɪliənt/',
-        'example': 'She has a brilliant mind.'
+        'example': 'She has a brilliant mind.',
+        'category':'cet4'
       },
       {
         'word': 'capture',
         'meaning': '捕获；占领',
         'phonetic_uk': '/ˈkæptʃə/',
         'phonetic_us': '/ˈkæptʃər/',
-        'example': 'The police captured the suspect.'
+        'example': 'The police captured the suspect.',
+        'category':'cet4'
       },
       {
         'word': 'diverse',
         'meaning': '多样的；不同的',
         'phonetic_uk': '/daɪˈvɜːs/',
         'phonetic_us': '/daɪˈvɜːrs/',
-        'example': 'The city has a diverse population.'
+        'example': 'The city has a diverse population.',
+        'category':'cet4'
       },
       {
         'word': 'evaluate',
         'meaning': '评估；评价',
         'phonetic_uk': '/ɪˈvæljueɪt/',
         'phonetic_us': '/ɪˈvæljueɪt/',
-        'example': 'We need to evaluate the situation.'
+        'example': 'We need to evaluate the situation.',
+        'category':'cet4'
       },
     ];
 

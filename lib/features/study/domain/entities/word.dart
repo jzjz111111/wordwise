@@ -7,6 +7,7 @@ class Word {
   final String? phoneticUk;
   final String? phoneticUs;
   final String? example;
+  final String category;
 
   Word({
     this.id,
@@ -15,6 +16,7 @@ class Word {
     this.phoneticUk,
     this.phoneticUs,
     this.example,
+    this.category='cet4',
   });
 
   /// 从 Map 创建 Word 对象（数据库查询结果 → 对象）
@@ -26,6 +28,7 @@ class Word {
       phoneticUk: map['phonetic_uk'] as String?,
       phoneticUs: map['phonetic_us'] as String?,
       example: map['example'] as String?,
+      category: map['category'] as String,
     );
   }
 
@@ -38,6 +41,7 @@ class Word {
       'phonetic_uk': phoneticUk,
       'phonetic_us': phoneticUs,
       'example': example,
+      'category':category,
     };
   }
 }

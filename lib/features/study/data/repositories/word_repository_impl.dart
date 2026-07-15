@@ -12,7 +12,7 @@ class WordRepositoryImpl implements WordRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
   @override
-  Future<List<Word>> getTodayReviewWords() async {
+  Future<List<Word>> getTodayReviewWords({String? category}) async {
     final db = await _dbHelper.database;
 
     // 获取今天的日期（不含时间）
@@ -20,15 +20,24 @@ class WordRepositoryImpl implements WordRepository {
     final todayStr = DateTime(today.year, today.month, today.day)
         .toIso8601String();
 
+    // 构建查询条件
+    String whereClause = 'DATE(s.next_review_date) <= DATE(?)';
+    List<dynamic> args = [todayStr];
+
+    // 如果指定了词库分类，增加过滤条件
+    if (category != null && category.isNotEmpty) {
+      whereClause += ' AND w.category = ?';
+      args.add(category);
+    }
     // 查询今天需要复习的单词
     // 关联 words 和 study_records 表
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
       SELECT w.*, s.*
       FROM words w
       INNER JOIN study_records s ON w.id = s.word_id
-      WHERE DATE(s.next_review_date) <= DATE(?)
+      WHERE $whereClause
       ORDER BY s.next_review_date ASC
-    ''', [todayStr]);
+    ''', args);
 
     // 把查询结果转换成 Word 对象列表
     return maps.map((map) => Word.fromMap(map)).toList();
@@ -111,33 +120,60 @@ class WordRepositoryImpl implements WordRepository {
   }
 
   @override
-  Future<Map<String, int>> getTodayStats() async {
+  Future<Map<String, int>> getTodayStats({String? category}) async {
     final db = await _dbHelper.database;
     final today = DateTime.now();
     final todayStr = DateTime(today.year, today.month, today.day)
         .toIso8601String();
 
-    // 今日待复习数量
-    final List<Map<String, dynamic>> reviewResult = await db.rawQuery('''
-      SELECT COUNT(*) as count
-      FROM study_records
-      WHERE next_review_date <= ?
-    ''', [todayStr]);
+    // 构建词库过滤条件
+    String categoryFilter = '';
+    List<dynamic> args = [];
+    if (category != null && category.isNotEmpty) {
+      categoryFilter = 'WHERE w.category = ?';
+      args.add(category);
+    }
+
+    // 今日待复习（需要关联 words 表以支持词库过滤）
+    String reviewQuery = '''
+    SELECT COUNT(*) as count
+    FROM study_records s
+    INNER JOIN words w ON s.word_id = w.id
+    WHERE DATE(s.next_review_date) <= DATE(?)
+  ''';
+    List<dynamic> reviewArgs = [todayStr];
+    if (category != null && category.isNotEmpty) {
+      reviewQuery += ' AND w.category = ?';
+      reviewArgs.add(category);
+    }
+    final List<Map<String, dynamic>> reviewResult = await db.rawQuery(reviewQuery, reviewArgs);
     final int todayReview = reviewResult.first['count'] as int;
 
-    // 总已掌握数量（mastery_level >= 5 表示已掌握）
-    final List<Map<String, dynamic>> masteredResult = await db.rawQuery('''
-      SELECT COUNT(*) as count
-      FROM study_records
-      WHERE mastery_level >= 5
-    ''');
+    // 已掌握（需要关联 words 表）
+    String masteredQuery = '''
+    SELECT COUNT(*) as count
+    FROM study_records s
+    INNER JOIN words w ON s.word_id = w.id
+    WHERE s.mastery_level >= 5
+  ''';
+    if (category != null && category.isNotEmpty) {
+      masteredQuery += ' AND w.category = ?';
+    }
+    final List<Map<String, dynamic>> masteredResult = await db.rawQuery(
+      masteredQuery,
+      category != null && category.isNotEmpty ? [category] : [],
+    );
     final int mastered = masteredResult.first['count'] as int;
 
-    // 总单词数
-    final List<Map<String, dynamic>> totalResult = await db.rawQuery('''
-      SELECT COUNT(*) as count
-      FROM words
-    ''');
+    // 总词汇（按词库过滤）
+    String totalQuery = 'SELECT COUNT(*) as count FROM words';
+    if (category != null && category.isNotEmpty) {
+      totalQuery += ' WHERE category = ?';
+    }
+    final List<Map<String, dynamic>> totalResult = await db.rawQuery(
+      totalQuery,
+      category != null && category.isNotEmpty ? [category] : [],
+    );
     final int total = totalResult.first['count'] as int;
 
     return {

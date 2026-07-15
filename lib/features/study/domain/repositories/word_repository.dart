@@ -7,7 +7,7 @@ import '../entities/study_record.dart';
 abstract class WordRepository {
   /// 获取今日需要复习的单词列表
   /// 返回 List<Word>，每个 Word 包含对应的学习记录信息
-  Future<List<Word>> getTodayReviewWords();
+  Future<List<Word>> getTodayReviewWords({String? category});
 
   /// 获取所有单词（用于词库管理）
   Future<List<Word>> getAllWords();
@@ -28,7 +28,7 @@ abstract class WordRepository {
   Future<StudyRecord?> getStudyRecord(int wordId);
 
   /// 获取今日学习统计
-  Future<Map<String, int>> getTodayStats();
+  Future<Map<String, int>> getTodayStats({String? category});
 
   /// 初始化词库（插入初始单词）
   Future<void> initializeWords();
