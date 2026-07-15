@@ -35,7 +35,7 @@ class DatabaseHelper {
     // 打开数据库（如果不存在则创建）
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
