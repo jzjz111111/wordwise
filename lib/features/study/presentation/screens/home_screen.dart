@@ -4,6 +4,7 @@ import '../providers/study_provider.dart';
 import 'study_screen.dart';
 import '../providers/word_category_provider.dart';
 import 'wrong_word_screen.dart';
+import 'stats_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -147,6 +148,29 @@ class HomeScreen extends ConsumerWidget {
                 },
                 icon: const Icon(Icons.error_outline),
                 label: const Text('📕 错词本'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+            // 错词统计按钮
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const StatsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.bar_chart),
+                label: const Text('📊 学习统计'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
