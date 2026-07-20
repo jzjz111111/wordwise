@@ -234,8 +234,17 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
             children: [
               if (state.wrongWords.isNotEmpty)
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('🔁 错词强化（待实现）'),
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChoiceTestScreen(
+                          words: state.wrongWords,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('🔁 继续强化'),
                 ),
               if (state.wrongWords.isNotEmpty) const SizedBox(width: 12),
               ElevatedButton(

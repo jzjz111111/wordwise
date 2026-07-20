@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/study_provider.dart';
 import 'study_screen.dart';
 import '../providers/word_category_provider.dart';
+import 'wrong_word_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -129,6 +130,29 @@ class HomeScreen extends ConsumerWidget {
               ),
               error: (err, stack) => Center(
                 child: Text('加载失败: $err'),
+              ),
+            ),
+// 错词本入口按钮
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const WrongWordScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.error_outline),
+                label: const Text('📕 错词本'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
               ),
             ),
           ],

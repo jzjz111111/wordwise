@@ -35,7 +35,7 @@ class DatabaseHelper {
     // 打开数据库（如果不存在则创建）
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -70,6 +70,16 @@ class DatabaseHelper {
         FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
       )
     ''');
+   //创建wrong_words表
+    await db.execute('''
+      CREATE TABLE wrong_words (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       word_id INTEGER NOT NULL,
+       wrong_count INTEGER DEFAULT 1,
+       last_wrong_date TEXT NOT NULL,
+       FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   // 7. 升级数据库（版本变化时调用）
@@ -78,6 +88,17 @@ class DatabaseHelper {
     // 例如：await db.execute('ALTER TABLE words ADD COLUMN example TEXT');
     if(oldVersion<2){
       await db.execute('ALTER TABLE words ADD COLUMN category TEXT DEFAULT "cet4"');
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
+    CREATE TABLE wrong_words (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      word_id INTEGER NOT NULL,
+      wrong_count INTEGER DEFAULT 1,
+      last_wrong_date TEXT NOT NULL,
+      FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+    )
+  ''');
     }
   }
 

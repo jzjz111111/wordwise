@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/spell_test_provider.dart';
 import '../../domain/entities/word.dart';
+import 'choice_test_screen.dart';
+
 
 class SpellTestScreen extends ConsumerStatefulWidget {
   final List<Word> words;
@@ -165,7 +167,7 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: state.userInput.trim().isEmpty ? null : () => ref.read(spellTestProvider.notifier).submitAnswer(),
+              onPressed: state.userInput.trim().isEmpty ? null : () async => await ref.read(spellTestProvider.notifier).submitAnswer(),
               child: const Text('提交答案'),
             ),
           ),
@@ -191,8 +193,18 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
             children: [
               if (state.wrongWords.isNotEmpty)
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('🔁 错词强化（待实现）'),
+                  onPressed: () {
+                    // 跳转到选择题测试，只传错词
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChoiceTestScreen(
+                          words: state.wrongWords,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('🔁 错词强化'),
                 ),
               if (state.wrongWords.isNotEmpty) const SizedBox(width: 12),
               ElevatedButton(

@@ -1,6 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/word.dart';
+import '../../domain/repositories/wrong_word_repository.dart';
+import '../../data/repositories/wrong_word_repository_impl.dart';
 
+final wrongWordRepositoryProvider = Provider<WrongWordRepository>((ref) {
+  return WrongWordRepositoryImpl();
+});
 /// 拼写测试状态
 class SpellTestState {
   final List<Word> words;
@@ -61,7 +66,8 @@ class SpellTestState {
 
 /// 拼写测试 Notifier
 class SpellTestNotifier extends StateNotifier<SpellTestState> {
-  SpellTestNotifier() : super(SpellTestState.initial());
+  final Ref ref;
+  SpellTestNotifier(this.ref) : super(SpellTestState.initial());
 
   void loadWords(List<Word> words) {
     if (words.isEmpty) {
@@ -83,10 +89,16 @@ class SpellTestNotifier extends StateNotifier<SpellTestState> {
     state = state.copyWith(userInput: value);
   }
 
-  void submitAnswer() {
+  Future<void> submitAnswer() async {  // ← 加了 async
     if (state.currentWord == null) return;
     final word = state.currentWord!;
     final isCorrect = state.userInput.trim().toLowerCase() == word.word.toLowerCase();
+
+    // 记录错词到数据库
+    if (!isCorrect) {
+      final wrongWordRepo = ref.read(wrongWordRepositoryProvider);
+      await wrongWordRepo.addWrongWord(word.id!);
+    }
 
     state = state.copyWith(
       isCorrect: isCorrect,
@@ -122,5 +134,5 @@ class SpellTestNotifier extends StateNotifier<SpellTestState> {
 }
 
 final spellTestProvider = StateNotifierProvider<SpellTestNotifier, SpellTestState>((ref) {
-  return SpellTestNotifier();
+  return SpellTestNotifier(ref);
 });
