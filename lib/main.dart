@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'features/study/presentation/screens/home_screen.dart';
-import 'core/router/app_router.dart';
 import 'core/database/database_helper.dart';
+import 'core/router/app_router.dart';
+import 'core/services/notification_service.dart';
 
-void main() async{
-  // 确保 Widgets 绑定初始化
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化数据库并插入示例单词
+  // 1. 初始化通知服务
+  final notificationService = NotificationService();
+  await notificationService.init();
+  await notificationService.checkNotificationEnabled();
+
+  // 2. 初始化数据库
   final dbHelper = DatabaseHelper.instance;
+  await dbHelper.database;
+  // 插入初始数据（如果为空）
   await dbHelper.insertInitialWords();
+
   runApp(const ProviderScope(child: MyApp()));
 }
 

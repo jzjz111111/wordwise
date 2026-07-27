@@ -113,7 +113,15 @@ class StudyNotifier extends StateNotifier<StudyState> {
       );
     }
   }
-
+// 加载指定单词列表（从详情页传入）
+  void loadWords(List<Word> words) {
+    state = state.copyWith(
+      words: words,
+      currentIndex: 0,
+      isLoading: false,
+      error: null,
+    );
+  }
   /// 评分并进入下一个单词
   Future<void> rateWord(int quality) async {
     // 如果没有单词或已经学完，不处理

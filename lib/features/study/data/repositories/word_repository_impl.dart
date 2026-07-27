@@ -187,4 +187,25 @@ class WordRepositoryImpl implements WordRepository {
   Future<void> initializeWords() async {
     await _dbHelper.insertInitialWords();
   }
+
+  @override
+  Future<(Word, StudyRecord?)> getWordDetail(int wordId) async {
+    final db = await _dbHelper.database;
+
+    // 查询单词
+    final List<Map<String, dynamic>> wordMaps = await db.query(
+      'words',
+      where: 'id = ?',
+      whereArgs: [wordId],
+    );
+    if (wordMaps.isEmpty) {
+      throw Exception('单词不存在');
+    }
+    final word = Word.fromMap(wordMaps.first);
+
+    // 查询学习记录
+    final record = await getStudyRecord(wordId);
+
+    return (word, record);
+  }
 }

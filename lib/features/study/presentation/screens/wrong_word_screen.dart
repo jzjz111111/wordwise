@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/wrong_word_provider.dart';
+import 'word_detail_screen.dart';
 
 class WrongWordScreen extends ConsumerStatefulWidget {
   const WrongWordScreen({super.key});
@@ -70,8 +71,11 @@ class _WrongWordScreenState extends ConsumerState<WrongWordScreen> {
                     },
                   ),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('复习功能开发中...')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => WordDetailScreen(wordId: word.id!),
+                      ),
                     );
                   },
                 );

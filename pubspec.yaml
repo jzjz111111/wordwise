@@ -52,7 +52,8 @@ dependencies:
   # 作用：控制台漂亮打印日志，调试必备
   supabase_flutter: ^2.5.0
   # 作用：集成 Supabase（认证 + 数据库）
-  flutter_local_notifications: ^17.0.0
+#  flutter_local_notifications: ^17.0.0
+  flutter_local_notifications: ^17.2.4
   # 作用：本地通知
   fl_chart: ^0.68.0
   # 作用：绘制图表（折线图、饼图）
@@ -60,6 +61,8 @@ dependencies:
   # 作用：骨架屏加载动画，弱网优化
   flutter_tts: ^3.8.0
   # 作用：文字转语音（发音功能
+  timezone: ^0.9.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

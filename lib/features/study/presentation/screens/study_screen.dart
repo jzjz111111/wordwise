@@ -4,9 +4,12 @@ import '../providers/study_provider.dart';
 import '../../domain/entities/word.dart';
 import 'spell_test_screen.dart';
 import 'choice_test_screen.dart';
+import '../../../../core/services/notification_service.dart';
 
 class StudyScreen extends ConsumerStatefulWidget {
-  const StudyScreen({super.key});
+  final List<Word>? initialWords;  // 新增：指定单词列表
+
+  const StudyScreen({super.key, this.initialWords});
 
   @override
   ConsumerState<StudyScreen> createState() => _StudyScreenState();
@@ -20,6 +23,13 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   Widget build(BuildContext context) {
     final studyState = ref.watch(studyStateProvider);
     final notifier = ref.read(studyStateProvider.notifier);
+
+    // 如果传入了 initialWords，加载到 Provider 中
+    if (widget.initialWords != null && studyState.words.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifier.loadWords(widget.initialWords!);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -73,6 +83,10 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
 
     // 没有单词（已完成）
     if (!state.hasMoreWords) {
+      // 在构建完成页时更新通知
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateNotification(ref);
+      });
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -367,4 +381,17 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     // 调用评分方法
     notifier.rateWord(quality);
   }
+  /// 更新每日复习通知内容
+  void _updateNotification(WidgetRef ref) async {
+    try {
+      final service = NotificationService();
+      final stats = await ref.read(todayStatsProvider.future);
+      final count = stats['todayReview'] ?? 0;
+      await service.scheduleDailyReminder(count);
+    } catch (e) {
+      // 静默失败，不影响用户体验
+      print('更新通知失败: $e');
+    }
+  }
+
 }

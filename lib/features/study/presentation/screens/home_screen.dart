@@ -5,6 +5,7 @@ import 'study_screen.dart';
 import '../providers/word_category_provider.dart';
 import 'wrong_word_screen.dart';
 import 'stats_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -21,6 +22,19 @@ class HomeScreen extends ConsumerWidget {
         title: const Text('📚 WordWise'),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
 
       body: Padding(
