@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/database/database_helper.dart';
 import 'core/router/app_router.dart';
 import 'core/services/notification_service.dart';
@@ -7,16 +8,19 @@ import 'core/services/notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. 初始化通知服务
+  //初始化 Supabase（硬编码）
+  await Supabase.initialize(
+    url: 'https://pniieotfzaanzivseezv.supabase.co',
+    publishableKey: 'sb_publishable_ssNHQGrExztJoWrjh4FPMg_8Gc1sJ9B',  //  用 publishableKey 替代 anonKey
+  );
+
+  // 初始化通知
   final notificationService = NotificationService();
   await notificationService.init();
-  await notificationService.checkNotificationEnabled();
 
-  // 2. 初始化数据库
+  // 初始化数据库
   final dbHelper = DatabaseHelper.instance;
   await dbHelper.database;
-  // 插入初始数据（如果为空）
-  await dbHelper.insertInitialWords();
 
   runApp(const ProviderScope(child: MyApp()));
 }

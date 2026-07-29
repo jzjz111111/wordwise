@@ -5,24 +5,26 @@ import '../../domain/entities/word.dart';
 import '../../domain/entities/study_record.dart';
 import '../../domain/repositories/word_repository.dart';
 import '../../domain/usecases/sm2_algorithm.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// WordRepository 的具体实现
 /// 负责从 SQLite 读写数据，并调用 SM-2 算法更新学习记录
 class WordRepositoryImpl implements WordRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  String get _userId => Supabase.instance.client.auth.currentUser!.id;
 
   @override
   Future<List<Word>> getTodayReviewWords({String? category}) async {
     final db = await _dbHelper.database;
-
+    final userId = _userId;
     // 获取今天的日期（不含时间）
     final today = DateTime.now();
     final todayStr = DateTime(today.year, today.month, today.day)
         .toIso8601String();
 
     // 构建查询条件
-    String whereClause = 'DATE(s.next_review_date) <= DATE(?)';
-    List<dynamic> args = [todayStr];
+    String whereClause = 'DATE(s.next_review_date) <= DATE(?) AND s.user_id = ?';
+    List<dynamic> args = [todayStr,userId];
 
     // 如果指定了词库分类，增加过滤条件
     if (category != null && category.isNotEmpty) {
@@ -68,7 +70,7 @@ class WordRepositoryImpl implements WordRepository {
     required int quality,
   }) async {
     final db = await _dbHelper.database;
-
+    final userId = _userId;
     // 1. 获取当前学习记录
     final record = await getStudyRecord(wordId);
     if (record == null) {
@@ -100,8 +102,8 @@ class WordRepositoryImpl implements WordRepository {
     await db.update(
       'study_records',
       updatedRecord.toMap(),
-      where: 'id = ?',
-      whereArgs: [record.id],
+      where: 'id = ? AND user_id = ?',
+      whereArgs: [record.id,userId],
     );
 
     return updatedRecord;
@@ -110,10 +112,11 @@ class WordRepositoryImpl implements WordRepository {
   @override
   Future<StudyRecord?> getStudyRecord(int wordId) async {
     final db = await _dbHelper.database;
+    final userId = _userId;
     final List<Map<String, dynamic>> maps = await db.query(
       'study_records',
       where: 'word_id = ?',
-      whereArgs: [wordId],
+      whereArgs: [wordId,userId],
     );
     if (maps.isEmpty) return null;
     return StudyRecord.fromMap(maps.first);
@@ -122,6 +125,7 @@ class WordRepositoryImpl implements WordRepository {
   @override
   Future<Map<String, int>> getTodayStats({String? category}) async {
     final db = await _dbHelper.database;
+    final userId = _userId;
     final today = DateTime.now();
     final todayStr = DateTime(today.year, today.month, today.day)
         .toIso8601String();
@@ -139,7 +143,7 @@ class WordRepositoryImpl implements WordRepository {
     SELECT COUNT(*) as count
     FROM study_records s
     INNER JOIN words w ON s.word_id = w.id
-    WHERE DATE(s.next_review_date) <= DATE(?)
+    WHERE DATE(s.next_review_date) <= DATE(?) AND s.user_id = ?
   ''';
     List<dynamic> reviewArgs = [todayStr];
     if (category != null && category.isNotEmpty) {
@@ -154,7 +158,7 @@ class WordRepositoryImpl implements WordRepository {
     SELECT COUNT(*) as count
     FROM study_records s
     INNER JOIN words w ON s.word_id = w.id
-    WHERE s.mastery_level >= 5
+    WHERE s.mastery_level >= 5  AND s.user_id = ?
   ''';
     if (category != null && category.isNotEmpty) {
       masteredQuery += ' AND w.category = ?';
@@ -185,7 +189,8 @@ class WordRepositoryImpl implements WordRepository {
 
   @override
   Future<void> initializeWords() async {
-    await _dbHelper.insertInitialWords();
+    final userId = _userId;
+    await _dbHelper.insertInitialWords(userId);
   }
 
   @override

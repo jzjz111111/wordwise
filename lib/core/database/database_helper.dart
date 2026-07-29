@@ -35,7 +35,7 @@ class DatabaseHelper {
     // 打开数据库（如果不存在则创建）
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -61,6 +61,7 @@ class DatabaseHelper {
       CREATE TABLE study_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         word_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,  
         review_count INTEGER DEFAULT 0,
         ease_factor REAL DEFAULT 2.5,
         interval INTEGER DEFAULT 1,
@@ -75,6 +76,7 @@ class DatabaseHelper {
       CREATE TABLE wrong_words (
        id INTEGER PRIMARY KEY AUTOINCREMENT,
        word_id INTEGER NOT NULL,
+       user_id TEXT NOT NULL,  
        wrong_count INTEGER DEFAULT 1,
        last_wrong_date TEXT NOT NULL,
        FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
@@ -100,10 +102,14 @@ class DatabaseHelper {
     )
   ''');
     }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE study_records ADD COLUMN user_id TEXT NOT NULL DEFAULT ""');
+      await db.execute('ALTER TABLE wrong_words ADD COLUMN user_id TEXT NOT NULL DEFAULT ""');
+    }
   }
 
   // 8. 插入初始数据（可选）
-  Future<void> insertInitialWords() async {
+  Future<void> insertInitialWords(String userId) async {
     Database db = await database;
 
     // 检查是否已有数据
@@ -157,10 +163,11 @@ class DatabaseHelper {
     for (var word in words) {
       // 插入单词
       int wordId = await db.insert('words', word);
-
+      // ✅ 插入时带上 user_id
       // 同时为每个单词初始化学习记录
       await db.insert('study_records', {
         'word_id': wordId,
+        'user_id': userId,
         'review_count': 0,
         'ease_factor': 2.5,
         'interval': 1,
