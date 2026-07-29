@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../domain/entities/study_stats.dart';
 import '../../domain/repositories/study_stats_repository.dart';
@@ -7,25 +8,28 @@ import '../../domain/repositories/study_stats_repository.dart';
 class StudyStatsRepositoryImpl implements StudyStatsRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
+  // ✅ 获取当前登录用户的 ID
+  String get _userId => Supabase.instance.client.auth.currentUser!.id;
+
   @override
   Future<List<DailyStudyStats>> getDailyStudyStats({required int days}) async {
     final db = await _dbHelper.database;
+    final userId = _userId;
 
-    // 获取今天和 N 天前的日期
     final now = DateTime.now();
     final startDate = DateTime(now.year, now.month, now.day - days + 1);
 
-    // 按天分组统计学习记录（有 last_review_date 的记录算学习过）
+    // ✅ 加上 user_id 过滤
     final List<Map<String, dynamic>> results = await db.rawQuery('''
       SELECT DATE(last_review_date) as date, COUNT(DISTINCT word_id) as count
       FROM study_records
       WHERE last_review_date IS NOT NULL
         AND DATE(last_review_date) >= DATE(?)
+        AND user_id = ?
       GROUP BY DATE(last_review_date)
       ORDER BY DATE(last_review_date) ASC
-    ''', [startDate.toIso8601String()]);
+    ''', [startDate.toIso8601String(), userId]);
 
-    // 构建完整日期列表（补全没有学习记录的日期）
     final Map<String, int> dataMap = {
       for (var row in results) row['date'] as String: row['count'] as int,
     };
@@ -46,14 +50,17 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
   @override
   Future<MasteryDistribution> getMasteryDistribution() async {
     final db = await _dbHelper.database;
+    final userId = _userId;
 
+    // ✅ 加上 user_id 过滤
     final List<Map<String, dynamic>> results = await db.rawQuery('''
       SELECT
         SUM(CASE WHEN mastery_level >= 5 THEN 1 ELSE 0 END) as mastered,
         SUM(CASE WHEN mastery_level > 0 AND mastery_level < 5 THEN 1 ELSE 0 END) as learning,
         SUM(CASE WHEN mastery_level == 0 THEN 1 ELSE 0 END) as not_started
       FROM study_records
-    ''');
+      WHERE user_id = ?
+    ''', [userId]);
 
     final row = results.first;
     return MasteryDistribution(
@@ -66,25 +73,26 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
   @override
   Future<TotalStudyStats> getTotalStudyStats() async {
     final db = await _dbHelper.database;
+    final userId = _userId;
 
-    // 总学习天数（有学习记录的不同日期数）
+    // ✅ 总学习天数（加上 user_id 过滤）
     final List<Map<String, dynamic>> daysResult = await db.rawQuery('''
       SELECT COUNT(DISTINCT DATE(last_review_date)) as count
       FROM study_records
-      WHERE last_review_date IS NOT NULL
-    ''');
+      WHERE last_review_date IS NOT NULL AND user_id = ?
+    ''', [userId]);
     final totalDays = daysResult.first['count'] as int? ?? 0;
 
-    // 总学习单词数（至少复习过1次的单词）
+    // ✅ 总学习单词数（加上 user_id 过滤）
     final List<Map<String, dynamic>> wordsResult = await db.rawQuery('''
       SELECT COUNT(DISTINCT word_id) as count
       FROM study_records
-      WHERE review_count > 0
-    ''');
+      WHERE review_count > 0 AND user_id = ?
+    ''', [userId]);
     final totalWords = wordsResult.first['count'] as int? ?? 0;
 
     // 连续学习天数
-    final consecutiveDays = await _calculateConsecutiveDays(db);
+    final consecutiveDays = await _calculateConsecutiveDays(db, userId);
 
     return TotalStudyStats(
       totalDays: totalDays,
@@ -93,14 +101,14 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     );
   }
 
-  Future<int> _calculateConsecutiveDays(Database db) async {
-    // 获取所有有学习记录的日期（去重，降序）
+  // ✅ 加上 userId 参数
+  Future<int> _calculateConsecutiveDays(Database db, String userId) async {
     final List<Map<String, dynamic>> results = await db.rawQuery('''
       SELECT DISTINCT DATE(last_review_date) as date
       FROM study_records
-      WHERE last_review_date IS NOT NULL
+      WHERE last_review_date IS NOT NULL AND user_id = ?
       ORDER BY DATE(last_review_date) DESC
-    ''');
+    ''', [userId]);
 
     if (results.isEmpty) return 0;
 
@@ -108,7 +116,6 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     final today = DateTime.now();
 
     int consecutive = 0;
-    // 从今天开始检查连续天数
     for (int i = 0; i < dates.length; i++) {
       final expectedDate = DateTime(today.year, today.month, today.day - i);
       if (i < dates.length) {

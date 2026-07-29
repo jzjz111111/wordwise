@@ -115,8 +115,8 @@ class WordRepositoryImpl implements WordRepository {
     final userId = _userId;
     final List<Map<String, dynamic>> maps = await db.query(
       'study_records',
-      where: 'word_id = ?',
-      whereArgs: [wordId,userId],
+      where: 'word_id = ? AND user_id = ?',
+      whereArgs: [wordId, userId],
     );
     if (maps.isEmpty) return null;
     return StudyRecord.fromMap(maps.first);
@@ -145,7 +145,7 @@ class WordRepositoryImpl implements WordRepository {
     INNER JOIN words w ON s.word_id = w.id
     WHERE DATE(s.next_review_date) <= DATE(?) AND s.user_id = ?
   ''';
-    List<dynamic> reviewArgs = [todayStr];
+    List<dynamic> reviewArgs = [todayStr, userId];
     if (category != null && category.isNotEmpty) {
       reviewQuery += ' AND w.category = ?';
       reviewArgs.add(category);
@@ -158,14 +158,18 @@ class WordRepositoryImpl implements WordRepository {
     SELECT COUNT(*) as count
     FROM study_records s
     INNER JOIN words w ON s.word_id = w.id
-    WHERE s.mastery_level >= 5  AND s.user_id = ?
-  ''';
+    WHERE s.mastery_level >= 5 AND s.user_id = ?
+    ''';
+    List<dynamic> masteredArgs = [userId];  // ✅ 先放入 userId
+
     if (category != null && category.isNotEmpty) {
       masteredQuery += ' AND w.category = ?';
+      masteredArgs.add(category);  // ✅ 有 category 时再加
     }
+
     final List<Map<String, dynamic>> masteredResult = await db.rawQuery(
       masteredQuery,
-      category != null && category.isNotEmpty ? [category] : [],
+      masteredArgs,  // ✅ 传入完整的参数列表
     );
     final int mastered = masteredResult.first['count'] as int;
 
