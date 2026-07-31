@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';  // 添加这个导入
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../../../../features/study/presentation/providers/study_provider.dart';
+import '../../../../core/services/sync_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -24,13 +25,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final auth = ref.read(authProvider);
       if (_isLoginMode) {
         await auth.signIn(_emailController.text, _passwordController.text);
+        if (mounted) {
+          final wordRepo = ref.read(wordRepositoryProvider);
+          await wordRepo.initializeWords();
+          final syncService = SyncService();
+          await syncService.downloadFromCloud();
+          await syncService.downloadWrongWordsFromCloud();
+          context.go('/home');
+        }
       } else {
         await auth.signUp(_emailController.text, _passwordController.text);
-      }
-      if (mounted) {
-        final wordRepo = ref.read(wordRepositoryProvider);
-        await wordRepo.initializeWords();
-        context.go('/home');
+        await auth.signOut();
+        if (mounted) {
+          setState(() {
+            _isLoginMode = true;
+            _passwordController.clear();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('注册成功！请登录')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

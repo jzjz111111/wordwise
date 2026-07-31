@@ -2,13 +2,14 @@ import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../core/services/sync_service.dart';
 import '../../domain/entities/word.dart';
 import '../../domain/repositories/wrong_word_repository.dart';
 
 class WrongWordRepositoryImpl implements WrongWordRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
-  // ✅ 获取当前登录用户的 ID
+  //  获取当前登录用户的 ID
   String get _userId => Supabase.instance.client.auth.currentUser!.id;
 
   @override
@@ -38,10 +39,16 @@ class WrongWordRepositoryImpl implements WrongWordRepository {
       // 不存在则插入（带上 user_id）
       await db.insert('wrong_words', {
         'word_id': wordId,
-        'user_id': userId,  // ✅ 新增
+        'user_id': userId,
         'wrong_count': 1,
         'last_wrong_date': DateTime.now().toIso8601String(),
       });
+    }
+    try {
+      final syncService = SyncService();
+      await syncService.uploadWrongWordsToCloud();
+    } catch (e) {
+      print('错词云端同步失败: $e');
     }
   }
 
@@ -69,6 +76,13 @@ class WrongWordRepositoryImpl implements WrongWordRepository {
       where: 'user_id = ?',
       whereArgs: [userId],
     );
+    //  云端清空
+    try {
+      final syncService = SyncService();
+      await syncService.clearWrongWordsFromCloud();
+    } catch (e) {
+      print('云端清空错词失败: $e');
+    }
   }
 
   @override
@@ -80,5 +94,12 @@ class WrongWordRepositoryImpl implements WrongWordRepository {
       where: 'word_id = ? AND user_id = ?',
       whereArgs: [wordId, userId],
     );
+    // 云端删除
+    try {
+      final syncService = SyncService();
+      await syncService.deleteWrongWordFromCloud(wordId);
+    } catch (e) {
+      print('云端删除错词失败: $e');
+    }
   }
 }

@@ -6,6 +6,7 @@ import '../../domain/entities/study_record.dart';
 import '../../domain/repositories/word_repository.dart';
 import '../../domain/usecases/sm2_algorithm.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/services/sync_service.dart';
 
 /// WordRepository 的具体实现
 /// 负责从 SQLite 读写数据，并调用 SM-2 算法更新学习记录
@@ -105,6 +106,13 @@ class WordRepositoryImpl implements WordRepository {
       where: 'id = ? AND user_id = ?',
       whereArgs: [record.id,userId],
     );
+    // 异步上传到云端（不阻塞 UI）
+    try {
+      final syncService = SyncService();
+      await syncService.uploadToCloud();
+    } catch (e) {
+      print('云端同步失败: $e');
+    }
 
     return updatedRecord;
   }
