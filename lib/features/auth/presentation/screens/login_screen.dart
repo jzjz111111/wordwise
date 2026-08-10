@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/database/database_helper.dart';
+import '../../../../core/database/word_importer.dart';
 import '../providers/auth_provider.dart';
 import '../../../../features/study/presentation/providers/study_provider.dart';
 import '../../../../core/services/sync_service.dart';
@@ -26,14 +28,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (_isLoginMode) {
         await auth.signIn(_emailController.text, _passwordController.text);
         if (mounted) {
+          // ✅ 登录后检查词库
+          final db = await DatabaseHelper.instance.database;
+          final wordCount = await db.query('words');
+          if (wordCount.isEmpty) {
+            print('📚 词库为空，开始导入...');
+            await WordImporter.importAll();
+            print('✅ 词库导入完成');
+          }
+
           final wordRepo = ref.read(wordRepositoryProvider);
           await wordRepo.initializeWords();
+
           final syncService = SyncService();
           await syncService.downloadFromCloud();
           await syncService.downloadWrongWordsFromCloud();
+
           context.go('/home');
         }
-      } else {
+      }  else {
         await auth.signUp(_emailController.text, _passwordController.text);
         await auth.signOut();
         if (mounted) {

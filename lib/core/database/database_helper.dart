@@ -113,61 +113,23 @@ class DatabaseHelper {
     }
   }
 
-  // 8. 插入初始数据
   Future<void> insertInitialWords(String userId) async {
-    Database db = await database;
+    final db = await database;
 
-    // 检查是否已有数据
-    List<Map> existing = await db.query('words');
-    if (existing.isNotEmpty) return;
+    // 检查当前用户是否已有学习记录
+    final existingRecords = await db.query(
+      'study_records',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
 
-    List<Map<String, dynamic>> words = [
-      {
-        'word': 'abandon',
-        'meaning': '放弃；遗弃',
-        'phonetic_uk': '/əˈbændən/',
-        'phonetic_us': '/əˈbændən/',
-        'example': 'He abandoned his car in the snow.',
-        'category': 'cet4'
-      },
-      {
-        'word': 'brilliant',
-        'meaning': '聪明的；辉煌的',
-        'phonetic_uk': '/ˈbrɪliənt/',
-        'phonetic_us': '/ˈbrɪliənt/',
-        'example': 'She has a brilliant mind.',
-        'category': 'cet4'
-      },
-      {
-        'word': 'capture',
-        'meaning': '捕获；占领',
-        'phonetic_uk': '/ˈkæptʃə/',
-        'phonetic_us': '/ˈkæptʃər/',
-        'example': 'The police captured the suspect.',
-        'category': 'cet4'
-      },
-      {
-        'word': 'diverse',
-        'meaning': '多样的；不同的',
-        'phonetic_uk': '/daɪˈvɜːs/',
-        'phonetic_us': '/daɪˈvɜːrs/',
-        'example': 'The city has a diverse population.',
-        'category': 'cet4'
-      },
-      {
-        'word': 'evaluate',
-        'meaning': '评估；评价',
-        'phonetic_uk': '/ɪˈvæljueɪt/',
-        'phonetic_us': '/ɪˈvæljueɪt/',
-        'example': 'We need to evaluate the situation.',
-        'category': 'cet4'
-      },
-    ];
+    if (existingRecords.isNotEmpty) return;
 
+    // 为当前用户的所有单词创建学习记录
+    final words = await db.query('words');
     for (var word in words) {
-      int wordId = await db.insert('words', word);
       await db.insert('study_records', {
-        'word_id': wordId,
+        'word_id': word['id'],
         'user_id': userId,
         'review_count': 0,
         'ease_factor': 2.5,
