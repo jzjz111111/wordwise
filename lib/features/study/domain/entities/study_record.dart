@@ -9,6 +9,7 @@ class StudyRecord {
   final DateTime nextReviewDate;
   final DateTime? lastReviewDate;
   final int masteryLevel;
+  final int lastReviewQuality;
 
   StudyRecord({
     this.id,
@@ -19,6 +20,7 @@ class StudyRecord {
     required this.nextReviewDate,
     this.lastReviewDate,
     this.masteryLevel = 0,
+    this.lastReviewQuality = -1,
   });
 
   /// 从 Map 创建 StudyRecord 对象
@@ -34,6 +36,7 @@ class StudyRecord {
           ? DateTime.parse(map['last_review_date'] as String)
           : null,
       masteryLevel: map['mastery_level'] as int,
+      lastReviewQuality: map['last_review_quality'] as int? ?? -1,
     );
   }
 
@@ -48,6 +51,7 @@ class StudyRecord {
       'next_review_date': nextReviewDate.toIso8601String(),
       'last_review_date': lastReviewDate?.toIso8601String(),
       'mastery_level': masteryLevel,
+      'last_review_quality': lastReviewQuality,
     };
   }
 
@@ -61,6 +65,7 @@ class StudyRecord {
     DateTime? nextReviewDate,
     DateTime? lastReviewDate,
     int? masteryLevel,
+    int? lastReviewQuality,
   }) {
     return StudyRecord(
       id: id ?? this.id,
@@ -71,6 +76,7 @@ class StudyRecord {
       nextReviewDate: nextReviewDate ?? this.nextReviewDate,
       lastReviewDate: lastReviewDate ?? this.lastReviewDate,
       masteryLevel: masteryLevel ?? this.masteryLevel,
+      lastReviewQuality: lastReviewQuality ?? this.lastReviewQuality,
     );
   }
 }

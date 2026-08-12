@@ -374,12 +374,14 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
 
   /// 评分并处理
   void _rateWord(StudyNotifier notifier, int quality) {
-    // 重置卡片翻转状态
+    // print(' 1. _rateWord 被调用, quality=$quality');
     setState(() {
+      // print(' 2. setState 执行');
       _isShowingBack = false;
     });
-    // 调用评分方法
+    // print(' 3. 准备调用 notifier.rateWord');
     notifier.rateWord(quality);
+    // print(' 4. notifier.rateWord 调用完成');
   }
   /// 更新每日复习通知内容
   void _updateNotification(WidgetRef ref) async {

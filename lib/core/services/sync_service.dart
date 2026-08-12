@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../features/study/domain/entities/study_record.dart';
 import '../database/database_helper.dart';
 
 class SyncService {
@@ -64,6 +65,46 @@ class SyncService {
     }
   }
 
+
+  /// 上传单条学习记录到云端（只同步一条）
+  Future<void> uploadSingleRecord(StudyRecord record, String userId) async {
+    try {
+      final data = {
+        'user_id': userId,
+        'word_id': record.wordId,
+        'review_count': record.reviewCount,
+        'ease_factor': record.easeFactor,
+        'interval': record.interval,
+        'next_review_date': record.nextReviewDate.toIso8601String(),
+        'last_review_date': record.lastReviewDate?.toIso8601String(),
+        'mastery_level': record.masteryLevel,
+        'last_review_quality': record.lastReviewQuality,
+        'synced_at': DateTime.now().toIso8601String(),
+      };
+
+      // 检查云端是否已有该记录
+      final existing = await _supabase
+          .from('study_records')
+          .select()
+          .eq('user_id', userId)
+          .eq('word_id', record.wordId)
+          .maybeSingle();
+
+      if (existing == null) {
+        await _supabase.from('study_records').insert(data);
+      } else {
+        await _supabase
+            .from('study_records')
+            .update(data)
+            .eq('user_id', userId)
+            .eq('word_id', record.wordId);
+      }
+      print('✅ 单条同步成功: word_id=${record.wordId}');
+    } catch (e) {
+      print('❌ 单条同步失败: $e');
+      rethrow;
+    }
+  }
   /// 从云端下载数据到本地
   Future<void> downloadFromCloud() async {
     final userId = _userId;

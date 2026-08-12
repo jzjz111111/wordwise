@@ -123,23 +123,54 @@ class StudyNotifier extends StateNotifier<StudyState> {
     );
   }
   /// 评分并进入下一个单词
+  // Future<void> rateWord(int quality) async {
+  //   // 如果没有单词或已经学完，不处理
+  //   if (!state.hasMoreWords) return;
+  //
+  //   final currentWord = state.currentWord!;
+  //   try {
+  //     final repository = ref.read(wordRepositoryProvider);
+  //     await repository.studyWord(
+  //       wordId: currentWord.id!,
+  //       quality: quality,
+  //     );
+  //
+  //     // 移动到下一个单词
+  //     state = state.copyWith(
+  //       currentIndex: state.currentIndex + 1,
+  //     );
+  //   } catch (e) {
+  //     state = state.copyWith(
+  //       error: e.toString(),
+  //     );
+  //   }
+  // }
   Future<void> rateWord(int quality) async {
-    // 如果没有单词或已经学完，不处理
-    if (!state.hasMoreWords) return;
+    print('🔥🔥 5. StudyNotifier.rateWord 被调用, quality=$quality');
+
+    if (!state.hasMoreWords) {
+      print('🔥🔥 6. 没有更多单词，退出');
+      return;
+    }
 
     final currentWord = state.currentWord!;
+    print('🔥🔥 7. 当前单词: ${currentWord.word}, id=${currentWord.id}');
+
     try {
       final repository = ref.read(wordRepositoryProvider);
+      print('🔥🔥 8. 开始调用 studyWord');
       await repository.studyWord(
         wordId: currentWord.id!,
         quality: quality,
       );
+      print('🔥🔥 9. studyWord 调用完成');
 
-      // 移动到下一个单词
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
       );
+      print('🔥🔥 10. 状态更新完成，新索引: ${state.currentIndex}');
     } catch (e) {
+      print('🔥🔥 11. 出错: $e');
       state = state.copyWith(
         error: e.toString(),
       );
