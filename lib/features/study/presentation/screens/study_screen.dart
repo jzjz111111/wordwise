@@ -7,7 +7,7 @@ import 'choice_test_screen.dart';
 import '../../../../core/services/notification_service.dart';
 
 class StudyScreen extends ConsumerStatefulWidget {
-  final List<Word>? initialWords;  // 新增：指定单词列表
+  final List<Word>? initialWords;
 
   const StudyScreen({super.key, this.initialWords});
 
@@ -19,17 +19,32 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   /// 当前是否显示卡片背面（释义）
   bool _isShowingBack = false;
 
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadWords();
+    });
+  }
+
+  void _loadWords() {
+    final notifier = ref.read(studyStateProvider.notifier);
+    if (widget.initialWords != null && widget.initialWords!.isNotEmpty) {
+      print('✅ StudyScreen 加载 ${widget.initialWords!.length} 个单词');
+      notifier.loadWords(widget.initialWords!);
+    } else {
+      print('❌ StudyScreen 没有收到 initialWords');
+      // 如果没有传入单词，加载空列表
+      notifier.loadWords([]);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final studyState = ref.watch(studyStateProvider);
     final notifier = ref.read(studyStateProvider.notifier);
 
-    // 如果传入了 initialWords，加载到 Provider 中
-    if (widget.initialWords != null && studyState.words.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        notifier.loadWords(widget.initialWords!);
-      });
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -52,6 +67,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       ),
     );
   }
+
 
   Widget _buildBody(
       StudyState state,
@@ -374,14 +390,10 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
 
   /// 评分并处理
   void _rateWord(StudyNotifier notifier, int quality) {
-    // print(' 1. _rateWord 被调用, quality=$quality');
     setState(() {
-      // print(' 2. setState 执行');
       _isShowingBack = false;
     });
-    // print(' 3. 准备调用 notifier.rateWord');
     notifier.rateWord(quality);
-    // print(' 4. notifier.rateWord 调用完成');
   }
   /// 更新每日复习通知内容
   void _updateNotification(WidgetRef ref) async {

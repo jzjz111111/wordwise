@@ -70,13 +70,28 @@ class WordRepositoryImpl implements WordRepository {
     required int wordId,
     required int quality,
   }) async {
+    // ✅ 第一步：方法开始
+    print('📖 [1] studyWord 开始, wordId=$wordId, quality=$quality');
+
     final db = await _dbHelper.database;
     final userId = _userId;
+
+    // ✅ 第二步：获取数据库成功
+    print('📖 [2] 数据库获取成功, userId=$userId');
+
     // 1. 获取当前学习记录
     final record = await getStudyRecord(wordId);
+
+    // ✅ 第三步：记录查询结果
+    print('📖 [3] getStudyRecord 完成, record=${record != null ? "存在" : "null"}');
+
     if (record == null) {
+      print('📖 [4] ❌ record 为 null，抛出异常');
       throw Exception('未找到单词的学习记录');
     }
+
+    // ✅ 第四步：SM-2 计算前
+    print('📖 [4] SM-2 计算前, interval=${record.interval}, easeFactor=${record.easeFactor}, reviewCount=${record.reviewCount}');
 
     // 2. 调用 SM-2 算法计算新的学习状态
     final result = Sm2Algorithm.calculate(
@@ -85,6 +100,9 @@ class WordRepositoryImpl implements WordRepository {
       currentEaseFactor: record.easeFactor,
       reviewCount: record.reviewCount,
     );
+
+    // ✅ 第五步：SM-2 计算完成
+    print('📖 [5] SM-2 计算完成, newInterval=${result.newInterval}, newEaseFactor=${result.newEaseFactor}');
 
     // 3. 更新学习记录
     final now = DateTime.now();
@@ -99,21 +117,31 @@ class WordRepositoryImpl implements WordRepository {
       masteryLevel: quality >= 4 ? record.masteryLevel + 1 : record.masteryLevel,
     );
 
+    // ✅ 第六步：更新记录构建完成
+    print('📖 [6] 更新记录构建完成');
+
     // 4. 保存到数据库
     await db.update(
       'study_records',
       updatedRecord.toMap(),
       where: 'id = ? AND user_id = ?',
-      whereArgs: [record.id,userId],
+      whereArgs: [record.id, userId],
     );
+
+    // ✅ 第七步：数据库更新完成
+    print('📖 [7] ✅ 数据库更新完成');
+
     // 异步上传到云端（不阻塞 UI）
     try {
       final syncService = SyncService();
-      await syncService.uploadToCloud();
+      await syncService.uploadSingleRecord(updatedRecord, userId);
+      print('📖 [8] ✅ 云端同步完成');
     } catch (e) {
-      print('云端同步失败: $e');
+      print('📖 [8] ❌ 云端同步失败: $e');
     }
 
+    // ✅ 第九步：方法结束
+    print('📖 [9] ✅ studyWord 正常结束');
     return updatedRecord;
   }
 
@@ -224,5 +252,25 @@ class WordRepositoryImpl implements WordRepository {
     final record = await getStudyRecord(wordId);
 
     return (word, record);
+  }
+
+  @override
+  Future<List<Word>> getNewWords({
+    required String category,
+    required int count,
+  }) async {
+    final db = await _dbHelper.database;
+    final userId = _userId;
+
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+    SELECT w.*
+    FROM words w
+    LEFT JOIN study_records s ON w.id = s.word_id AND s.user_id = ?
+    WHERE w.category = ?
+      AND (s.id IS NULL OR s.review_count = 0)
+    LIMIT ?
+  ''', [userId, category, count]);
+
+    return maps.map((map) => Word.fromMap(map)).toList();
   }
 }

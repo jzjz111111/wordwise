@@ -23,10 +23,18 @@ final todayStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   return await repository.getTodayStats(category: category);
 });
 
+///提供未学习单词记录
+final newWordsProvider = FutureProvider.family<List<Word>, int>((ref, count) async {
+  final repository = ref.watch(wordRepositoryProvider);
+  final category = ref.watch(currentCategoryProvider);
+  return await repository.getNewWords(category: category, count: count);
+});
+
 /// 学习状态提供者（管理当前学习进度）
 final studyStateProvider = StateNotifierProvider<StudyNotifier, StudyState>((ref) {
   return StudyNotifier(ref);
 });
+
 
 /// 学习状态
 class StudyState {
@@ -146,31 +154,32 @@ class StudyNotifier extends StateNotifier<StudyState> {
   //   }
   // }
   Future<void> rateWord(int quality) async {
-    print('🔥🔥 5. StudyNotifier.rateWord 被调用, quality=$quality');
+    print('🔥 rateWord 开始, quality=$quality');
 
     if (!state.hasMoreWords) {
-      print('🔥🔥 6. 没有更多单词，退出');
+      print('🔥 没有更多单词，退出');
       return;
     }
 
     final currentWord = state.currentWord!;
-    print('🔥🔥 7. 当前单词: ${currentWord.word}, id=${currentWord.id}');
+    print('🔥 当前单词: ${currentWord.word}, id=${currentWord.id}');
 
     try {
       final repository = ref.read(wordRepositoryProvider);
-      print('🔥🔥 8. 开始调用 studyWord');
+      print('🔥 调用 studyWord 前');
       await repository.studyWord(
         wordId: currentWord.id!,
         quality: quality,
       );
-      print('🔥🔥 9. studyWord 调用完成');
+      print('🔥 studyWord 成功');
 
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
       );
-      print('🔥🔥 10. 状态更新完成，新索引: ${state.currentIndex}');
+      print('🔥 索引更新为 ${state.currentIndex}');
+
     } catch (e) {
-      print('🔥🔥 11. 出错: $e');
+      print('🔥 出错: $e');
       state = state.copyWith(
         error: e.toString(),
       );

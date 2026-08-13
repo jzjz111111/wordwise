@@ -8,12 +8,24 @@ import 'wrong_word_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
 
-
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final TextEditingController _newWordCountController = TextEditingController(text: '10');
+
+  @override
+  void dispose() {
+    _newWordCountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // 监听统计数据
     final statsAsync = ref.watch(todayStatsProvider);
     // 监听单词列表（用于判断是否有词可学）
@@ -48,9 +60,7 @@ class HomeScreen extends ConsumerWidget {
             },
           ),
         ],
-
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -73,6 +83,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 32),
+
             // 单词库选择
             Consumer(
               builder: (context, ref, child) {
@@ -121,7 +132,7 @@ class HomeScreen extends ConsumerWidget {
 
             const SizedBox(height: 32),
 
-            // 开始学习按钮
+            // 开始学习按钮（复习入口）
             wordsAsync.when(
               data: (words) => SizedBox(
                 width: double.infinity,
@@ -130,11 +141,12 @@ class HomeScreen extends ConsumerWidget {
                   onPressed: words.isEmpty
                       ? null
                       : () {
-                    // 跳转到学习页面
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const StudyScreen(),
+                        builder: (context) => StudyScreen(
+                          initialWords: words,
+                        ),
                       ),
                     );
                   },
@@ -161,7 +173,79 @@ class HomeScreen extends ConsumerWidget {
                 child: Text('加载失败: $err'),
               ),
             ),
-// 错词本入口按钮
+
+            // ✅ 新增：背新词入口
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _newWordCountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '新词数量',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final count = int.tryParse(_newWordCountController.text) ?? 10;
+                      if (count <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('请输入有效数量')),
+                        );
+                        return;
+                      }
+
+                      // 使用 ref.refresh 强制重新加载，并等待结果
+                      final asyncValue = await ref.refresh(newWordsProvider(count));
+
+                      asyncValue.when(
+                        data: (words) {
+                          if (words.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('没有更多新词了！')),
+                            );
+                            return;
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => StudyScreen(
+                                initialWords: words,
+                              ),
+                            ),
+                          );
+                        },
+                        loading: () {
+                          // 加载中（此时已经加载完成了，不会触发）
+                        },
+                        error: (err, stack) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('加载失败: $err')),
+                          );
+                        },
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text('📖 背新词'),
+                  ),
+                ),
+              ],
+            ),
+
+            // 错词本入口按钮
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -184,7 +268,8 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            // 错词统计按钮
+
+            // 学习统计按钮
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -251,7 +336,7 @@ class HomeScreen extends ConsumerWidget {
           color: color.withAlpha(26),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color:color.withAlpha(78),
+            color: color.withAlpha(78),
           ),
         ),
         child: Column(

@@ -34,4 +34,10 @@ abstract class WordRepository {
   Future<void> initializeWords();
   /// 获取单词详情（包含学习记录）
   Future<(Word, StudyRecord?)> getWordDetail(int wordId);
+
+  /// 获取未学过的单词（新词）
+  Future<List<Word>> getNewWords({
+    required String category,
+    required int count,
+  });
 }
