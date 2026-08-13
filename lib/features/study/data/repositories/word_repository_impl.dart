@@ -80,14 +80,31 @@ class WordRepositoryImpl implements WordRepository {
     print('📖 [2] 数据库获取成功, userId=$userId');
 
     // 1. 获取当前学习记录
-    final record = await getStudyRecord(wordId);
+    var record = await getStudyRecord(wordId);
 
     // ✅ 第三步：记录查询结果
     print('📖 [3] getStudyRecord 完成, record=${record != null ? "存在" : "null"}');
 
+    // ? 如果记录不存在，创建一条初始记录
     if (record == null) {
-      print('📖 [4] ❌ record 为 null，抛出异常');
-      throw Exception('未找到单词的学习记录');
+      print('?? 首次学习，创建初始记录: wordId=$wordId');
+      final now = DateTime.now();
+      final initialId = await db.insert('study_records', {
+        'word_id': wordId,
+        'user_id': userId,
+        'review_count': 0,
+        'ease_factor': 2.5,
+        'interval': 1,
+        'next_review_date': now.toIso8601String(),
+        'last_review_date': null,
+        'mastery_level': 0,
+        'last_review_quality': -1,
+      });
+      // 重新查询刚创建的记录
+      record = await getStudyRecord(wordId);
+      if (record == null) {
+        throw Exception('创建学习记录失败');
+      }
     }
 
     // ✅ 第四步：SM-2 计算前
@@ -254,6 +271,25 @@ class WordRepositoryImpl implements WordRepository {
     return (word, record);
   }
 
+  // @override
+  // Future<List<Word>> getNewWords({
+  //   required String category,
+  //   required int count,
+  // }) async {
+  //   final db = await _dbHelper.database;
+  //   final userId = _userId;
+  //
+  //   final List<Map<String, dynamic>> maps = await db.rawQuery('''
+  //   SELECT w.*
+  //   FROM words w
+  //   LEFT JOIN study_records s ON w.id = s.word_id AND s.user_id = ?
+  //   WHERE w.category = ?
+  //     AND (s.id IS NULL OR s.review_count = 0)
+  //   LIMIT ?
+  // ''', [userId, category, count]);
+  //
+  //   return maps.map((map) => Word.fromMap(map)).toList();
+  // }
   @override
   Future<List<Word>> getNewWords({
     required String category,
@@ -262,12 +298,13 @@ class WordRepositoryImpl implements WordRepository {
     final db = await _dbHelper.database;
     final userId = _userId;
 
+    // ✅ 查询 study_records 中不存在的词（从未学过）
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
     SELECT w.*
     FROM words w
     LEFT JOIN study_records s ON w.id = s.word_id AND s.user_id = ?
     WHERE w.category = ?
-      AND (s.id IS NULL OR s.review_count = 0)
+      AND s.id IS NULL
     LIMIT ?
   ''', [userId, category, count]);
 

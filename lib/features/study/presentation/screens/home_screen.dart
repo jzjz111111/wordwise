@@ -26,9 +26,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 监听统计数据
     final statsAsync = ref.watch(todayStatsProvider);
-    // 监听单词列表（用于判断是否有词可学）
     final wordsAsync = ref.watch(todayWordsProvider);
 
     return Scaffold(
@@ -66,21 +64,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 标题
             const Text(
               '今日学习',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(
               '坚持每一天，词汇量自然增长',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 32),
 
@@ -103,7 +94,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           onSelected: (selected) {
                             if (selected) {
                               ref.read(currentCategoryProvider.notifier).state = cat['id']!;
-                              // 刷新数据
                               ref.invalidate(todayWordsProvider);
                               ref.invalidate(todayStatsProvider);
                             }
@@ -122,12 +112,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // 统计卡片
             statsAsync.when(
               data: (stats) => _buildStatsGrid(stats),
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              error: (err, stack) => Center(
-                child: Text('加载失败: $err'),
-              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('加载失败: $err')),
             ),
 
             const SizedBox(height: 32),
@@ -166,15 +152,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ),
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              error: (err, stack) => Center(
-                child: Text('加载失败: $err'),
-              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('加载失败: $err')),
             ),
 
-            // ✅ 新增：背新词入口
+            // 背新词入口（点两次稳定版）
             const SizedBox(height: 16),
             Row(
               children: [
@@ -194,7 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Expanded(
                   flex: 3,
                   child: ElevatedButton(
-                    onPressed: () async {
+                    onPressed: () {
                       final count = int.tryParse(_newWordCountController.text) ?? 10;
                       if (count <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -203,10 +185,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         return;
                       }
 
-                      // 使用 ref.refresh 强制重新加载，并等待结果
-                      final asyncValue = await ref.refresh(newWordsProvider(count));
-
-                      asyncValue.when(
+                      final newWordsAsync = ref.read(newWordsProvider(count));
+                      newWordsAsync.when(
                         data: (words) {
                           if (words.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -224,7 +204,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           );
                         },
                         loading: () {
-                          // 加载中（此时已经加载完成了，不会触发）
+                          // 第一次点击触发加载，第二次点击数据已缓存，直接跳转
                         },
                         error: (err, stack) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -245,7 +225,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
 
-            // 错词本入口按钮
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -269,7 +248,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-            // 学习统计按钮
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -298,7 +276,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// 统计卡片网格
   Widget _buildStatsGrid(Map<String, int> stats) {
     return Row(
       children: [
@@ -323,7 +300,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// 单个统计卡片
   Widget _buildStatCard({
     required String label,
     required int value,

@@ -126,20 +126,20 @@ class DatabaseHelper {
     if (existingRecords.isNotEmpty) return;
 
     // 为当前用户的所有单词创建学习记录
-    final words = await db.query('words');
-    for (var word in words) {
-      await db.insert('study_records', {
-        'word_id': word['id'],
-        'user_id': userId,
-        'review_count': 0,
-        'ease_factor': 2.5,
-        'interval': 1,
-        'next_review_date': DateTime.now().toIso8601String(),
-        'last_review_date': null,
-        'mastery_level': 0,
-        'last_review_quality': -1,
-      });
-    }
+    // final words = await db.query('words');
+    // for (var word in words) {
+    //   await db.insert('study_records', {
+    //     'word_id': word['id'],
+    //     'user_id': userId,
+    //     'review_count': 0,
+    //     'ease_factor': 2.5,
+    //     'interval': 1,
+    //     'next_review_date': DateTime.now().toIso8601String(),
+    //     'last_review_date': null,
+    //     'mastery_level': 0,
+    //     'last_review_quality': -1,
+    //   });
+    // }
   }
 
   // 9. 关闭数据库
