@@ -19,11 +19,11 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   /// 当前是否显示卡片背面（释义）
   bool _isShowingBack = false;
 
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _loadWords();
     });
   }
@@ -31,10 +31,10 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   void _loadWords() {
     final notifier = ref.read(studyStateProvider.notifier);
     if (widget.initialWords != null && widget.initialWords!.isNotEmpty) {
-      print('✅ StudyScreen 加载 ${widget.initialWords!.length} 个单词');
+      debugPrint('✅ StudyScreen 加载 ${widget.initialWords!.length} 个单词');
       notifier.loadWords(widget.initialWords!);
     } else {
-      print('❌ StudyScreen 没有收到 initialWords');
+      debugPrint('❌ StudyScreen 没有收到 initialWords');
       // 如果没有传入单词，加载空列表
       notifier.loadWords([]);
     }
@@ -43,8 +43,14 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   @override
   Widget build(BuildContext context) {
     final studyState = ref.watch(studyStateProvider);
-    final notifier = ref.read(studyStateProvider.notifier);
 
+    // 统一监听状态变化：仅在「刚学完所有单词」时执行一次跳转（边沿触发）
+    ref.listen<StudyState>(studyStateProvider, (previous, current) {
+      final justCompleted = !current.hasMoreWords && previous?.hasMoreWords == true;
+      if (justCompleted) {
+        _navigateToSpellTest(current.words);
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -53,7 +59,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
               ? '加载中...'
               : studyState.hasMoreWords
               ? '学习 ${studyState.progress}'
-              : '🎉 完成！',
+              : '完成！',
         ),
         centerTitle: true,
         leading: IconButton(
@@ -63,16 +69,28 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: _buildBody(studyState, notifier),
+        child: _buildBody(studyState),
       ),
     );
   }
 
+  /// 跳转到拼写测试页（统一封装，带生命周期保护）
+  void _navigateToSpellTest(List<Word> words) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      // 先更新通知，再执行跳转
+      await _updateNotification();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SpellTestScreen(words: words),
+        ),
+      );
+    });
+  }
 
-  Widget _buildBody(
-      StudyState state,
-      StudyNotifier notifier,
-      ) {
+  Widget _buildBody(StudyState state) {
     // 加载中
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -89,7 +107,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
             Text('错误: ${state.error}'),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => notifier.refresh(),
+              onPressed: () => ref.read(studyStateProvider.notifier).refresh(),
               child: const Text('重试'),
             ),
           ],
@@ -97,83 +115,15 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       );
     }
 
-    // 没有单词（已完成）
+    // 没有单词（已完成）→ 仅显示加载提示，跳转由 ref.listen 统一触发
     if (!state.hasMoreWords) {
-      // 在构建完成页时更新通知
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _updateNotification(ref);
-      });
-      return Center(
+      return const Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.celebration,
-              size: 64,
-              color: Colors.green,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '🎉 今日所有单词已完成！',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '共学习了 ${state.words.length} 个单词',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 32),
-            // 拼写测试按钮
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SpellTestScreen(
-                      words: state.words,
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('✍️ 拼写测试'),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ChoiceTestScreen(
-                      words: state.words,
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('📝 选择题测试'),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('返回首页'),
-            ),
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在进入拼写测试...', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -185,7 +135,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       children: [
         // 进度指示
         LinearProgressIndicator(
-          value: state.currentIndex / state.words.length,
+          value: state.words.isNotEmpty ? state.currentIndex / state.words.length : 0,
           backgroundColor: Colors.grey[200],
           color: Colors.blue,
         ),
@@ -228,7 +178,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                 icon: Icons.close,
                 color: Colors.red,
                 quality: 0,
-                onTap: () => _rateWord(notifier, 0),
+                onTap: () => _rateWord(0),
               ),
             ),
             const SizedBox(width: 12),
@@ -238,7 +188,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                 icon: Icons.help_outline,
                 color: Colors.orange,
                 quality: 3,
-                onTap: () => _rateWord(notifier, 3),
+                onTap: () => _rateWord(3),
               ),
             ),
             const SizedBox(width: 12),
@@ -248,7 +198,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                 icon: Icons.check,
                 color: Colors.green,
                 quality: 5,
-                onTap: () => _rateWord(notifier, 5),
+                onTap: () => _rateWord(5),
               ),
             ),
           ],
@@ -258,7 +208,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
 
         // 提示翻转
         Text(
-          '👆 点击卡片查看释义',
+          '点击卡片查看释义',
           style: TextStyle(
             fontSize: 14,
             color: Colors.grey[500],
@@ -300,7 +250,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
           ),
         const SizedBox(height: 16),
         const Text(
-          '👆 点击翻转',
+          '点击翻转',
           style: TextStyle(
             fontSize: 14,
             color: Colors.grey,
@@ -344,7 +294,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
         ],
         const SizedBox(height: 16),
         const Text(
-          '👆 点击返回',
+          '点击返回',
           style: TextStyle(
             fontSize: 14,
             color: Colors.grey,
@@ -389,14 +339,15 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   }
 
   /// 评分并处理
-  void _rateWord(StudyNotifier notifier, int quality) {
+  void _rateWord(int quality) {
     setState(() {
       _isShowingBack = false;
     });
-    notifier.rateWord(quality);
+    ref.read(studyStateProvider.notifier).rateWord(quality);
   }
+
   /// 更新每日复习通知内容
-  void _updateNotification(WidgetRef ref) async {
+  Future<void> _updateNotification() async {
     try {
       final service = NotificationService();
       final stats = await ref.read(todayStatsProvider.future);
@@ -404,8 +355,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       await service.scheduleDailyReminder(count);
     } catch (e) {
       // 静默失败，不影响用户体验
-      print('更新通知失败: $e');
+      debugPrint('更新通知失败: $e');
     }
   }
-
 }

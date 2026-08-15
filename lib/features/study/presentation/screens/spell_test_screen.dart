@@ -5,7 +5,6 @@ import '../providers/spell_test_provider.dart';
 import '../../domain/entities/word.dart';
 import 'choice_test_screen.dart';
 
-
 class SpellTestScreen extends ConsumerStatefulWidget {
   final List<Word> words;
   const SpellTestScreen({super.key, required this.words});
@@ -38,6 +37,25 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(spellTestProvider);
 
+    // 核心修改：统一监听状态变化，处理所有自动跳转逻辑
+    ref.listen(spellTestProvider, (previous, current) {
+      // 场景1：测试进入完成状态时跳转（边沿触发：仅从false变true时执行一次）
+      if (current.isCompleted && previous?.isCompleted != true) {
+        _navigateToChoiceTest(current.wrongWords, current.words);
+        return;
+      }
+
+      // 场景2：最后一题提交答案、显示结果时自动跳转
+      final isLastWord = current.currentIndex + 1 >= current.totalCount;
+      final wasLastWord = previous != null
+          ? previous.currentIndex + 1 >= previous.totalCount
+          : false;
+      final justShowResult = current.showResult && previous?.showResult != true;
+      if (isLastWord && justShowResult) {
+        _navigateToChoiceTest(current.wrongWords, current.words);
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('✍️ 拼写测试'),
@@ -49,9 +67,25 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: state.isCompleted ? _buildCompletionView(state) : _buildTestView(state),
+        child: state.isCompleted ? _buildCompletionView() : _buildTestView(state),
       ),
     );
+  }
+
+  // 抽取跳转逻辑为独立方法，统一处理、统一加保护
+  void _navigateToChoiceTest(List<Word> wrongWords, List<Word> allWords) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 生命周期保护：页面已销毁则不执行，避免报错
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChoiceTestScreen(
+            words: wrongWords.isNotEmpty ? wrongWords : allWords,
+          ),
+        ),
+      );
+    });
   }
 
   Widget _buildTestView(SpellTestState state) {
@@ -149,17 +183,28 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                _controller.clear();
-                _focusNode.requestFocus();
-                ref.read(spellTestProvider.notifier).nextWord();
-              },
-              child: Text(state.currentIndex + 1 >= state.totalCount ? '查看结果' : '下一个'),
+          // 修复：移除了错误的跳转代码，替换为友好的加载提示
+          if (state.currentIndex + 1 >= state.totalCount) ...[
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('正在进入下一轮测试...', style: TextStyle(color: Colors.grey)),
+              ),
             ),
-          ),
+          ] else ...[
+            // 不是最后一个：显示“下一个”按钮
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  _controller.clear();
+                  _focusNode.requestFocus();
+                  ref.read(spellTestProvider.notifier).nextWord();
+                },
+                child: const Text('下一个'),
+              ),
+            ),
+          ],
         ],
 
         if (!state.showResult) ...[
@@ -176,43 +221,15 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
     );
   }
 
-  Widget _buildCompletionView(SpellTestState state) {
-    final correct = state.totalCount - state.wrongWords.length;
-    return Center(
+  Widget _buildCompletionView() {
+    // 修复：移除了跳转代码，只保留加载UI
+    return const Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(state.wrongWords.isEmpty ? Icons.celebration : Icons.sentiment_neutral, size: 72, color: state.wrongWords.isEmpty ? Colors.green : Colors.orange),
-          const SizedBox(height: 16),
-          Text(state.wrongWords.isEmpty ? '🎉 全部正确！' : '✍️ 拼写完成', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text('正确: $correct / ${state.totalCount}'),
-          if (state.wrongWords.isNotEmpty) Text('错词: ${state.wrongWords.length} 个', style: const TextStyle(color: Colors.red)),
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (state.wrongWords.isNotEmpty)
-                ElevatedButton(
-                  onPressed: () {
-                    // 跳转到选择题测试，只传错词
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChoiceTestScreen(
-                          words: state.wrongWords,
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('🔁 错词强化'),
-                ),
-              if (state.wrongWords.isNotEmpty) const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('返回首页'),
-              ),
-            ],
-          ),
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('正在进入下一轮测试...', style: TextStyle(color: Colors.grey)),
         ],
       ),
     );

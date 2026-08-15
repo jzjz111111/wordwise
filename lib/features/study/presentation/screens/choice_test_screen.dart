@@ -20,18 +20,52 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 获取所有单词（用于生成干扰项）
-      final allWords = ref.read(todayWordsProvider).maybeWhen(
-        data: (words) => words,
-        orElse: () => <Word>[],
-      );
+      // 异步回调增加生命周期保护，避免页面销毁后执行报错
+      if (!mounted) return;
+      final allWords = _getAllWords();
       ref.read(choiceTestProvider.notifier).loadWords(widget.words, allWords);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tts.stop();
+    super.dispose();
+  }
+
+  // 抽取公共方法：获取全量单词，消除重复代码
+  List<Word> _getAllWords() {
+    return ref.read(todayWordsProvider).maybeWhen(
+      data: (words) => words,
+      orElse: () => <Word>[],
+    );
+  }
+
+  // 统一处理测试完成逻辑
+  void _handleCompleted(List<Word> wrongWords) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (wrongWords.isNotEmpty) {
+        // 有错词：原地重置状态，开始下一轮错词测试（无跳转动画，更流畅）
+        final allWords = _getAllWords();
+        ref.read(choiceTestProvider.notifier).loadWords(wrongWords, allWords);
+      }
+      // 无错词：什么都不用做，UI 自动展示完成页
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(choiceTestProvider);
+
+    // ✅ 正确位置：ref.listen 必须放在 build 方法内部
+    ref.listen<ChoiceTestState>(choiceTestProvider, (previous, current) {
+      // 仅在 isCompleted 刚变为 true 时执行一次（边沿触发）
+      if (current.isCompleted && previous?.isCompleted != true) {
+        _handleCompleted(current.wrongWords);
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -56,9 +90,12 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final word = state.currentWord!;
+    final word = state.currentWord;
+    // 空值保护，避免崩溃
+    if (word == null) {
+      return const Center(child: Text('加载单词失败'));
+    }
 
-    //  SingleChildScrollView + Column
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -67,7 +104,9 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
           Text('${state.currentIndex + 1} / ${state.totalCount}'),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: (state.currentIndex + 1) / state.totalCount,
+            value: state.totalCount > 0
+                ? (state.currentIndex + 1) / state.totalCount
+                : 0,
             backgroundColor: Colors.grey[200],
             color: Colors.blue,
           ),
@@ -85,18 +124,19 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
               children: [
                 Text(
                   word.meaning,
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
-                if (word.phoneticUk != null)
-                  Text('英 ${word.phoneticUk}'),
+                if (word.phoneticUk != null) Text('英 ${word.phoneticUk}'),
                 const SizedBox(height: 12),
                 IconButton(
                   onPressed: () => _tts.speak(word.word),
                   icon: const Icon(Icons.volume_up, size: 36),
                   color: Colors.blue,
                 ),
-                const Text('👆 点击听发音', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const Text('点击听发音',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),
@@ -106,7 +146,8 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
           // 四个选项
           ...List.generate(4, (index) {
             final isSelected = state.selectedIndex == index;
-            final isCorrectOption = state.showResult && state.options[index] == word.word;
+            final isCorrectOption =
+                state.showResult && state.options[index] == word.word;
             final isWrongOption = state.showResult && isSelected && !isCorrectOption;
 
             return Padding(
@@ -117,11 +158,10 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
                   onPressed: state.showResult
                       ? null
                       : () {
-                    final allWords = ref.read(todayWordsProvider).maybeWhen(
-                      data: (words) => words,
-                      orElse: () => <Word>[],
-                    );
-                    ref.read(choiceTestProvider.notifier).selectAnswer(index, allWords);
+                    final allWords = _getAllWords();
+                    ref
+                        .read(choiceTestProvider.notifier)
+                        .selectAnswer(index, allWords);
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -132,9 +172,8 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
                         ? Colors.red
                         : Colors.grey[300]
                         : Colors.grey[100],
-                    foregroundColor: state.showResult
-                        ? Colors.white
-                        : Colors.black,
+                    foregroundColor:
+                    state.showResult ? Colors.white : Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(
@@ -151,7 +190,8 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
                   ),
                   child: Text(
                     state.options[index],
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w500),
                   ),
                 ),
               ),
@@ -177,10 +217,13 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      state.isCorrect ? '✅ 正确！' : '❌ 错误，正确答案是 ${word.word}',
+                      state.isCorrect
+                          ? '正确！'
+                          : '错误，正确答案是 ${word.word}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: state.isCorrect ? Colors.green : Colors.red,
+                        color:
+                        state.isCorrect ? Colors.green : Colors.red,
                       ),
                     ),
                   ),
@@ -192,14 +235,13 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  final allWords = ref.read(todayWordsProvider).maybeWhen(
-                    data: (words) => words,
-                    orElse: () => <Word>[],
-                  );
+                  final allWords = _getAllWords();
                   ref.read(choiceTestProvider.notifier).nextWord(allWords);
                 },
                 child: Text(
-                  state.currentIndex + 1 >= state.totalCount ? '查看结果' : '下一题',
+                  state.currentIndex + 1 >= state.totalCount
+                      ? '查看结果'
+                      : '下一题',
                 ),
               ),
             ),
@@ -210,48 +252,38 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
   }
 
   Widget _buildCompletionView(ChoiceTestState state) {
+    // 有错词：正在加载下一轮
+    if (state.wrongWords.isNotEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在进入错词重测...', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    // 全部正确 → 显示完成页
     final correct = state.totalCount - state.wrongWords.length;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            state.wrongWords.isEmpty ? Icons.celebration : Icons.sentiment_neutral,
-            size: 72,
-            color: state.wrongWords.isEmpty ? Colors.green : Colors.orange,
-          ),
+          const Icon(Icons.celebration, size: 72, color: Colors.green),
           const SizedBox(height: 16),
-          Text(
-            state.wrongWords.isEmpty ? '🎉 全部正确！' : '📝 选择题完成',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          Text('正确: $correct / ${state.totalCount}'),
-          if (state.wrongWords.isNotEmpty)
-            Text('错词: ${state.wrongWords.length} 个', style: const TextStyle(color: Colors.red)),
+          const Text('全部完成！',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('正确: $correct / ${state.totalCount}',
+              style: const TextStyle(fontSize: 18, color: Colors.grey)),
           const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (state.wrongWords.isNotEmpty)
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChoiceTestScreen(
-                          words: state.wrongWords,
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('🔁 继续强化'),
-                ),
-              if (state.wrongWords.isNotEmpty) const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('返回首页'),
-              ),
-            ],
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.popUntil(context, (route) => route.isFirst),
+            child: const Text('返回首页'),
           ),
         ],
       ),
