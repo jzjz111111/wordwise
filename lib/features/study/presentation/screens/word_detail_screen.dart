@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/word_detail_provider.dart';
+import '../providers/wrong_word_provider.dart';
+import '../providers/study_provider.dart';
 import '../../domain/entities/study_record.dart';
 import '../../domain/entities/word.dart';
-import 'study_screen.dart';
 
 class WordDetailScreen extends ConsumerWidget {
   final int wordId;
@@ -26,7 +27,6 @@ class WordDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.volume_up),
             onPressed: () {
-              // 发音功能
               detailAsync.whenData((detail) {
                 final tts = FlutterTts();
                 tts.speak(detail.$1.word);
@@ -36,7 +36,7 @@ class WordDetailScreen extends ConsumerWidget {
         ],
       ),
       body: detailAsync.when(
-        data: (data) => _buildContent(context, data.$1, data.$2),
+        data: (data) => _buildContent(context, ref, data.$1, data.$2),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
           child: Column(
@@ -61,6 +61,7 @@ class WordDetailScreen extends ConsumerWidget {
 
   Widget _buildContent(
       BuildContext context,
+      WidgetRef ref,
       Word word,
       StudyRecord? record,
       ) {
@@ -176,16 +177,38 @@ class WordDetailScreen extends ConsumerWidget {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // 跳转到学习界面，只复习这一个词
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => StudyScreen(
-                          initialWords: [word],  // 传入单个单词列表
+                  onPressed: () async {
+                    try {
+                      // 1. 复习次数 +1（调用 SM-2 算法更新学习记录）
+                      final repository = ref.read(wordRepositoryProvider);
+                      await repository.studyWord(
+                        wordId: word.id!,
+                        quality: 5,
+                      );
+
+                      // 2. 从错词本中删除（本地 + 云端）
+                      final wrongRepo = ref.read(wrongWordRepositoryProvider);
+                      await wrongRepo.removeWrongWord(word.id!);
+
+                      // 3. 刷新页面数据
+                      ref.invalidate(wrongWordsProvider);
+                      ref.invalidate(wordDetailProvider(wordId));
+
+                      // 4. 提示用户并返回
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('✅ 已复习并移除错词'),
+                          backgroundColor: Colors.green,
                         ),
-                      ),
-                    );
+                      );
+                      Navigator.pop(context);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('操作失败: $e')),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.refresh),
                   label: const Text('复习这个词'),
