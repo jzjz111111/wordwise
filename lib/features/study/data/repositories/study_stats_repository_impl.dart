@@ -8,7 +8,6 @@ import '../../domain/repositories/study_stats_repository.dart';
 class StudyStatsRepositoryImpl implements StudyStatsRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
-  // ✅ 获取当前登录用户的 ID
   String get _userId => Supabase.instance.client.auth.currentUser!.id;
 
   @override
@@ -19,7 +18,6 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     final now = DateTime.now();
     final startDate = DateTime(now.year, now.month, now.day - days + 1);
 
-    // ✅ 加上 user_id 过滤
     final List<Map<String, dynamic>> results = await db.rawQuery('''
       SELECT DATE(last_review_date) as date, COUNT(DISTINCT word_id) as count
       FROM study_records
@@ -52,21 +50,21 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     final db = await _dbHelper.database;
     final userId = _userId;
 
-    // ✅ 加上 user_id 过滤
+    // ✅ 按三档划分：初级/中级/高级
     final List<Map<String, dynamic>> results = await db.rawQuery('''
       SELECT
-        SUM(CASE WHEN mastery_level >= 5 THEN 1 ELSE 0 END) as mastered,
-        SUM(CASE WHEN mastery_level > 0 AND mastery_level < 5 THEN 1 ELSE 0 END) as learning,
-        SUM(CASE WHEN mastery_level == 0 THEN 1 ELSE 0 END) as not_started
+        SUM(CASE WHEN mastery_level < 3 THEN 1 ELSE 0 END) as basic,
+        SUM(CASE WHEN mastery_level >= 3 AND mastery_level < 5 THEN 1 ELSE 0 END) as intermediate,
+        SUM(CASE WHEN mastery_level >= 5 THEN 1 ELSE 0 END) as advanced
       FROM study_records
       WHERE user_id = ?
     ''', [userId]);
 
     final row = results.first;
     return MasteryDistribution(
-      mastered: row['mastered'] as int? ?? 0,
-      learning: row['learning'] as int? ?? 0,
-      notStarted: row['not_started'] as int? ?? 0,
+      basic: row['basic'] as int? ?? 0,
+      intermediate: row['intermediate'] as int? ?? 0,
+      advanced: row['advanced'] as int? ?? 0,
     );
   }
 
@@ -75,7 +73,6 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     final db = await _dbHelper.database;
     final userId = _userId;
 
-    // ✅ 总学习天数（加上 user_id 过滤）
     final List<Map<String, dynamic>> daysResult = await db.rawQuery('''
       SELECT COUNT(DISTINCT DATE(last_review_date)) as count
       FROM study_records
@@ -83,7 +80,6 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     ''', [userId]);
     final totalDays = daysResult.first['count'] as int? ?? 0;
 
-    // ✅ 总学习单词数（加上 user_id 过滤）
     final List<Map<String, dynamic>> wordsResult = await db.rawQuery('''
       SELECT COUNT(DISTINCT word_id) as count
       FROM study_records
@@ -91,7 +87,6 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     ''', [userId]);
     final totalWords = wordsResult.first['count'] as int? ?? 0;
 
-    // 连续学习天数
     final consecutiveDays = await _calculateConsecutiveDays(db, userId);
 
     return TotalStudyStats(
@@ -101,7 +96,6 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     );
   }
 
-  // ✅ 加上 userId 参数
   Future<int> _calculateConsecutiveDays(Database db, String userId) async {
     final List<Map<String, dynamic>> results = await db.rawQuery('''
       SELECT DISTINCT DATE(last_review_date) as date

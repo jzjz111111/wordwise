@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/database/word_importer.dart';
+import '../../../study/presentation/providers/study_stats_provider.dart';
 import '../providers/auth_provider.dart';
 import '../../../../features/study/presentation/providers/study_provider.dart';
 import '../../../../core/services/sync_service.dart';
@@ -43,6 +44,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           final syncService = SyncService();
           await syncService.downloadFromCloud();
           await syncService.downloadWrongWordsFromCloud();
+
+          //  清除统计缓存，确保加载当前用户的数据
+          ref.invalidate(dailyStudyStatsProvider);
+          ref.invalidate(masteryDistributionProvider);
+          ref.invalidate(totalStudyStatsProvider);
 
           context.go('/home');
         }

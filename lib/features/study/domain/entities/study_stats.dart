@@ -13,19 +13,19 @@ class DailyStudyStats {
   }
 }
 
-/// 掌握程度分布
+/// 掌握程度分布（按 mastery_level 分三档）
 class MasteryDistribution {
-  final int mastered;   // 已掌握 (mastery_level >= 5)
-  final int learning;   // 学习中 (mastery_level > 0 && mastery_level < 5)
-  final int notStarted; // 未学习 (mastery_level == 0)
+  final int basic;        // 初级掌握 (mastery_level < 3)
+  final int intermediate; // 中级掌握 (mastery_level >= 3 && < 5)
+  final int advanced;     // 高级掌握 (mastery_level >= 5)
 
   MasteryDistribution({
-    required this.mastered,
-    required this.learning,
-    required this.notStarted,
+    required this.basic,
+    required this.intermediate,
+    required this.advanced,
   });
 
-  int get total => mastered + learning + notStarted;
+  int get total => basic + intermediate + advanced;
 }
 
 /// 总学习统计

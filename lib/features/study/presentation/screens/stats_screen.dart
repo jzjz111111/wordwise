@@ -28,7 +28,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 总统计卡片
             totalStats.when(
               data: (stats) => _buildTotalStatsCard(stats),
               loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator())),
@@ -36,7 +35,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 近7天趋势图
             const Text(
               '📈 近7天学习趋势',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -49,7 +47,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 掌握程度分布
             const Text(
               '🎯 掌握程度分布',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -181,6 +178,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     );
   }
 
+  /// ✅ 修改饼图：显示初级/中级/高级掌握
   Widget _buildPieChart(MasteryDistribution data) {
     final total = data.total;
     if (total == 0) {
@@ -190,29 +188,29 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           color: Colors.grey[50],
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Center(child: Text('暂无数据')),
+        child: const Center(child: Text('暂无已学单词')),
       );
     }
 
     final sections = [
       PieChartSectionData(
-        value: data.mastered.toDouble(),
-        color: Colors.green,
-        title: '${(data.mastered / total * 100).toInt()}%',
-        radius: 50,
-        titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-      ),
-      PieChartSectionData(
-        value: data.learning.toDouble(),
+        value: data.basic.toDouble(),
         color: Colors.orange,
-        title: '${(data.learning / total * 100).toInt()}%',
+        title: '${(data.basic / total * 100).toInt()}%',
         radius: 50,
         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
       ),
       PieChartSectionData(
-        value: data.notStarted.toDouble(),
-        color: Colors.grey,
-        title: '${(data.notStarted / total * 100).toInt()}%',
+        value: data.intermediate.toDouble(),
+        color: Colors.blue,
+        title: '${(data.intermediate / total * 100).toInt()}%',
+        radius: 50,
+        titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+      PieChartSectionData(
+        value: data.advanced.toDouble(),
+        color: Colors.green,
+        title: '${(data.advanced / total * 100).toInt()}%',
         radius: 50,
         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
       ),
@@ -236,11 +234,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildLegendItem(Colors.green, '已掌握', data.mastered),
+              _buildLegendItem(Colors.orange, '初级掌握', data.basic, total),
               const SizedBox(height: 8),
-              _buildLegendItem(Colors.orange, '学习中', data.learning),
+              _buildLegendItem(Colors.blue, '中级掌握', data.intermediate, total),
               const SizedBox(height: 8),
-              _buildLegendItem(Colors.grey, '未学习', data.notStarted),
+              _buildLegendItem(Colors.green, '高级掌握', data.advanced, total),
             ],
           ),
         ],
@@ -248,12 +246,14 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     );
   }
 
-  Widget _buildLegendItem(Color color, String label, int count) {
+  /// ✅ 图例项（显示百分比）
+  Widget _buildLegendItem(Color color, String label, int count, int total) {
+    final percentage = total > 0 ? (count / total * 100).toStringAsFixed(1) : '0.0';
     return Row(
       children: [
         Container(width: 16, height: 16, color: color),
         const SizedBox(width: 8),
-        Text('$label: $count'),
+        Text('$label: $count ($percentage%)'),
       ],
     );
   }

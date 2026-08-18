@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../study/presentation/providers/study_stats_provider.dart';
 import '../../domain/entities/profile.dart';
 import '../providers/profile_provider.dart';
 
@@ -112,6 +113,12 @@ class ProfileScreen extends ConsumerWidget {
 
                   if (confirm == true) {
                     await ref.read(authProvider).signOut();
+
+                    // ✅ 清除统计缓存
+                    ref.invalidate(dailyStudyStatsProvider);
+                    ref.invalidate(masteryDistributionProvider);
+                    ref.invalidate(totalStudyStatsProvider);
+
                     if (!context.mounted) return;
                     context.go('/login');
                   }
