@@ -382,6 +382,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_deepseek:
+    dependency: "direct main"
+    description:
+      name: flutter_deepseek
+      sha256: "0f9117e53bb6f4858e90431d6f48bd1e314ac19d8d8fae51a7cb6f433439cbd2"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.1.1"
   flutter_lints:
     dependency: "direct dev"
     description:

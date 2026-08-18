@@ -65,6 +65,7 @@ dependencies:
   dotenv: ^4.2.0
   android_intent_plus: ^5.0.0
   image_picker: ^1.0.7
+  flutter_deepseek: ^0.1.1
 
 dev_dependencies:
   flutter_test:
