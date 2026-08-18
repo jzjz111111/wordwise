@@ -30,7 +30,7 @@ class DatabaseHelper {
     String path = join(documentsDirectory.path, 'wordwise.db');
     return await openDatabase(
       path,
-      version: 5,  // ✅ 版本号从 4 改成 5，触发 _onUpgrade
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -47,7 +47,8 @@ class DatabaseHelper {
         phonetic_uk TEXT,
         phonetic_us TEXT,
         example TEXT,
-        category TEXT DEFAULT 'cet4'
+        category TEXT DEFAULT 'cet4',
+        distractors TEXT
       )
     ''');
 
@@ -111,6 +112,12 @@ class DatabaseHelper {
     if (oldVersion < 5) {
       await db.execute('ALTER TABLE study_records ADD COLUMN last_review_quality INTEGER DEFAULT -1');
     }
+    //单词表的干扰列
+    if (oldVersion < 6) {
+      await db.execute('ALTER TABLE words ADD COLUMN distractors TEXT');
+    }
+
+
   }
 
   Future<void> insertInitialWords(String userId) async {

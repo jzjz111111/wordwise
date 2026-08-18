@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// 单词实体类
 /// 对应数据库中的 words 表
 class Word {
@@ -8,6 +10,8 @@ class Word {
   final String? phoneticUs;
   final String? example;
   final String category;
+  final List<String>? distractors;
+  // final List<Map<String, dynamic>>? exam;
 
   Word({
     this.id,
@@ -17,6 +21,8 @@ class Word {
     this.phoneticUs,
     this.example,
     this.category='cet4',
+    this.distractors,
+    // this.exam,
   });
 
   /// 从 Map 创建 Word 对象（数据库查询结果 → 对象）
@@ -29,6 +35,10 @@ class Word {
       phoneticUs: map['phonetic_us'] as String?,
       example: map['example'] as String?,
       category: map['category'] as String,
+      distractors: map['distractors'] != null
+          ? List<String>.from(jsonDecode(map['distractors'] as String))
+          : null,
+      // exam: map['exam'] != null ? List<Map<String, dynamic>>.from(jsonDecode(map['exam'] as String)) : null,
     );
   }
 
@@ -42,6 +52,8 @@ class Word {
       'phonetic_us': phoneticUs,
       'example': example,
       'category':category,
+      'distractors': distractors != null ? jsonEncode(distractors) : null,
+      // 'exam': exam != null ? jsonEncode(exam) : null,
     };
   }
 }
