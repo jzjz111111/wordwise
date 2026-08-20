@@ -1,3 +1,4 @@
+import 'dart:async';  // ✅ 新增：用于 unawaited
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/word.dart';
 import '../../domain/repositories/wrong_word_repository.dart';
@@ -6,6 +7,7 @@ import '../../data/repositories/wrong_word_repository_impl.dart';
 final wrongWordRepositoryProvider = Provider<WrongWordRepository>((ref) {
   return WrongWordRepositoryImpl();
 });
+
 /// 拼写测试状态
 class SpellTestState {
   final List<Word> words;
@@ -89,17 +91,13 @@ class SpellTestNotifier extends StateNotifier<SpellTestState> {
     state = state.copyWith(userInput: value);
   }
 
-  Future<void> submitAnswer() async {  // ← 加了 async
+  /// ✅ 提交答案（UI 优先，异步记录错词）
+  Future<void> submitAnswer() async {
     if (state.currentWord == null) return;
     final word = state.currentWord!;
     final isCorrect = state.userInput.trim().toLowerCase() == word.word.toLowerCase();
 
-    // 记录错词到数据库
-    if (!isCorrect) {
-      final wrongWordRepo = ref.read(wrongWordRepositoryProvider);
-      await wrongWordRepo.addWrongWord(word.id!);
-    }
-
+    // ✅ 第一步：立即更新 UI 状态（用户立刻看到反馈）
     state = state.copyWith(
       isCorrect: isCorrect,
       showResult: true,
@@ -107,6 +105,24 @@ class SpellTestNotifier extends StateNotifier<SpellTestState> {
           ? state.wrongWords
           : [...state.wrongWords, word],
     );
+
+    // ✅ 第二步：如果错了，在后台异步记录错词（不阻塞 UI）
+    if (!isCorrect) {
+      unawaited(_addWrongWordAsync(word.id!));
+    }
+  }
+
+  /// 异步记录错词（不阻塞 UI）
+  Future<void> _addWrongWordAsync(int wordId) async {
+    try {
+      final wrongWordRepo = ref.read(wrongWordRepositoryProvider);
+      await wrongWordRepo.addWrongWord(wordId);
+      // 记录日志，方便调试
+      print('✅ 错词记录成功: wordId=$wordId');
+    } catch (e) {
+      // 静默失败，不影响用户体验
+      print('❌ 错词记录失败: $e');
+    }
   }
 
   void nextWord() {
