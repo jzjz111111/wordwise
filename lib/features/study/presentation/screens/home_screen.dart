@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../profile/presentation/screens/profile_screen.dart';
 import '../providers/study_provider.dart';
 import 'study_screen.dart';
 import '../providers/word_category_provider.dart';
 import 'wrong_word_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
+import '../../../profile/presentation/screens/profile_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +17,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _newWordCountController = TextEditingController(text: '10');
+  int _selectedIndex = 0;
 
   @override
   void dispose() {
@@ -26,44 +27,86 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final statsAsync = ref.watch(todayStatsProvider);
-    final wordsAsync = ref.watch(todayWordsProvider);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('📚 WordWise'),
-        centerTitle: true,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProfileScreen(),
-                ),
-              );
-            },
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _buildHomePage(),           // 首页
+          const StatsScreen(),        // 统计
+          const WrongWordScreen(),    // 错词本
+          const ProfileScreen(),      // 个人中心
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: '首页',
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
-                ),
-              );
-            },
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: '统计',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.error_outline),
+            selectedIcon: Icon(Icons.error),
+            label: '错词本',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: '我的',
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
+    );
+  }
+
+
+
+  Widget _buildHomePage() {
+    final statsAsync = ref.watch(todayStatsProvider);
+    final wordsAsync = ref.watch(todayWordsProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              children: [
+                const Spacer(),
+                const Text(
+                  '📚 WordWise',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             const Text(
               '今日学习',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
@@ -76,38 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 32),
 
             // 单词库选择
-            Consumer(
-              builder: (context, ref, child) {
-                final categories = ref.watch(categoriesProvider);
-                final currentCategory = ref.watch(currentCategoryProvider);
-
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: categories.map((cat) {
-                      final isSelected = cat['id'] == currentCategory;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text('${cat['icon']} ${cat['name']}'),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            if (selected) {
-                              ref.read(currentCategoryProvider.notifier).state = cat['id']!;
-                              ref.invalidate(todayWordsProvider);
-                              ref.invalidate(todayStatsProvider);
-                            }
-                          },
-                          backgroundColor: Colors.grey[200],
-                          selectedColor: Colors.blue[100],
-                          checkmarkColor: Colors.blue,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                );
-              },
-            ),
+            _buildCategorySelector(),
 
             // 统计卡片
             statsAsync.when(
@@ -156,7 +168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               error: (err, stack) => Center(child: Text('加载失败: $err')),
             ),
 
-            // 背新词入口（点两次稳定版）
+            // 背新词入口
             const SizedBox(height: 16),
             Row(
               children: [
@@ -203,9 +215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           );
                         },
-                        loading: () {
-                          // 第一次点击触发加载，第二次点击数据已缓存，直接跳转
-                        },
+                        loading: () {},
                         error: (err, stack) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('加载失败: $err')),
@@ -224,54 +234,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
             ),
-
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const WrongWordScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.error_outline),
-                label: const Text('📕 错词本'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const StatsScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.bar_chart),
-                label: const Text('📊 学习统计'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategorySelector() {
+    final categories = ref.watch(categoriesProvider);
+    final currentCategory = ref.watch(currentCategoryProvider);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: categories.map((cat) {
+          final isSelected = cat['id'] == currentCategory;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text('${cat['icon']} ${cat['name']}'),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (selected) {
+                  ref.read(currentCategoryProvider.notifier).state = cat['id']!;
+                  ref.invalidate(todayWordsProvider);
+                  ref.invalidate(todayStatsProvider);
+                }
+              },
+              backgroundColor: Colors.grey[200],
+              selectedColor: Colors.blue[100],
+              checkmarkColor: Colors.blue,
+            ),
+          );
+        }).toList(),
       ),
     );
   }

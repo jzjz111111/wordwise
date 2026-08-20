@@ -29,7 +29,7 @@ class ProfileScreen extends ConsumerWidget {
         title: const Text('👤 个人中心'),
         centerTitle: true,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,7 +114,6 @@ class ProfileScreen extends ConsumerWidget {
                   if (confirm == true) {
                     await ref.read(authProvider).signOut();
 
-                    // ✅ 清除统计缓存
                     ref.invalidate(dailyStudyStatsProvider);
                     ref.invalidate(masteryDistributionProvider);
                     ref.invalidate(totalStudyStatsProvider);
