@@ -30,8 +30,6 @@ abstract class WordRepository {
   /// 获取今日学习统计
   Future<Map<String, int>> getTodayStats({String? category});
 
-  /// 初始化词库（插入初始单词）
-  Future<void> initializeWords();
   /// 获取单词详情（包含学习记录）
   Future<(Word, StudyRecord?)> getWordDetail(int wordId);
 

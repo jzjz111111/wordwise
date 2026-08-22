@@ -244,11 +244,7 @@ class WordRepositoryImpl implements WordRepository {
     };
   }
 
-  @override
-  Future<void> initializeWords() async {
-    final userId = _userId;
-    await _dbHelper.insertInitialWords(userId);
-  }
+
 
   @override
   Future<(Word, StudyRecord?)> getWordDetail(int wordId) async {

@@ -120,34 +120,7 @@ class DatabaseHelper {
 
   }
 
-  Future<void> insertInitialWords(String userId) async {
-    final db = await database;
 
-    // 检查当前用户是否已有学习记录
-    final existingRecords = await db.query(
-      'study_records',
-      where: 'user_id = ?',
-      whereArgs: [userId],
-    );
-
-    if (existingRecords.isNotEmpty) return;
-
-    // 为当前用户的所有单词创建学习记录
-    // final words = await db.query('words');
-    // for (var word in words) {
-    //   await db.insert('study_records', {
-    //     'word_id': word['id'],
-    //     'user_id': userId,
-    //     'review_count': 0,
-    //     'ease_factor': 2.5,
-    //     'interval': 1,
-    //     'next_review_date': DateTime.now().toIso8601String(),
-    //     'last_review_date': null,
-    //     'mastery_level': 0,
-    //     'last_review_quality': -1,
-    //   });
-    // }
-  }
 
   // 9. 关闭数据库
   Future<void> close() async {

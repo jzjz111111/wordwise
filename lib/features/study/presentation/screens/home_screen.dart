@@ -16,14 +16,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final TextEditingController _newWordCountController = TextEditingController(text: '10');
   int _selectedIndex = 0;
-
-  @override
-  void dispose() {
-    _newWordCountController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,8 +63,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-
-
   Widget _buildHomePage() {
     final statsAsync = ref.watch(todayStatsProvider);
     final wordsAsync = ref.watch(todayWordsProvider);
@@ -117,9 +108,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 32),
-
-            // 单词库选择
-            _buildCategorySelector(),
 
             // 统计卡片
             statsAsync.when(
@@ -168,105 +156,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               error: (err, stack) => Center(child: Text('加载失败: $err')),
             ),
 
-            // 背新词入口
+            // 背新词入口（点击弹出选择器）
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _newWordCountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '新词数量',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showCountPicker(context, ref),
+                icon: const Icon(Icons.add),
+                label: const Text('📖 背新词'),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 3,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final count = int.tryParse(_newWordCountController.text) ?? 10;
-                      if (count <= 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('请输入有效数量')),
-                        );
-                        return;
-                      }
-
-                      final newWordsAsync = ref.read(newWordsProvider(count));
-                      newWordsAsync.when(
-                        data: (words) {
-                          if (words.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('没有更多新词了！')),
-                            );
-                            return;
-                          }
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => StudyScreen(
-                                initialWords: words,
-                              ),
-                            ),
-                          );
-                        },
-                        loading: () {},
-                        error: (err, stack) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('加载失败: $err')),
-                          );
-                        },
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text('📖 背新词'),
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCategorySelector() {
-    final categories = ref.watch(categoriesProvider);
-    final currentCategory = ref.watch(currentCategoryProvider);
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: categories.map((cat) {
-          final isSelected = cat['id'] == currentCategory;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text('${cat['icon']} ${cat['name']}'),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  ref.read(currentCategoryProvider.notifier).state = cat['id']!;
-                  ref.invalidate(todayWordsProvider);
-                  ref.invalidate(todayStatsProvider);
-                }
-              },
-              backgroundColor: Colors.grey[200],
-              selectedColor: Colors.blue[100],
-              checkmarkColor: Colors.blue,
-            ),
-          );
-        }).toList(),
       ),
     );
   }
@@ -332,5 +239,117 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
+  }
+
+  void _showCountPicker(BuildContext context, WidgetRef ref) {
+    final List<int> presetCounts = List.generate(30, (index) => (index + 1) * 10);
+    int selectedCount = 10;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('选择新词数量'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$selectedCount 个',
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 150,
+                    child: SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: presetCounts.map((count) {
+                          final isSelected = selectedCount == count;
+                          return ChoiceChip(
+                            label: Text('$count'),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                selectedCount = count;
+                              });
+                            },
+                            selectedColor: Colors.blue,
+                            backgroundColor: Colors.grey[200],
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _startLearningNewWords(context, ref, selectedCount);
+                  },
+                  child: const Text('开始背词'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _startLearningNewWords(BuildContext context, WidgetRef ref, int count) async {
+    // 显示加载提示（可选）
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('加载中...'), duration: Duration(milliseconds: 500)),
+    );
+
+    try {
+      // ✅ 使用 refresh 强制刷新并等待数据返回
+      final asyncValue = await ref.refresh(newWordsProvider(count));
+
+      asyncValue.when(
+        data: (words) {
+          if (words.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('没有更多新词了！')),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StudyScreen(
+                initialWords: words,
+              ),
+            ),
+          );
+        },
+        loading: () {},
+        error: (err, stack) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('加载失败: $err')),
+          );
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('加载失败: $e')),
+      );
+    }
   }
 }
