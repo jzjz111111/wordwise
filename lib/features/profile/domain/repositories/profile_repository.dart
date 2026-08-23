@@ -12,4 +12,10 @@ abstract class ProfileRepository {
 
   /// 上传头像图片
   Future<String> uploadAvatar(String userId, String filePath);
+
+  /// 更新背景URL
+  Future<void> updateBackground(String userId, String backgroundUrl);
+
+  /// 上传背景图片
+  Future<String> uploadBackground(String userId, String filePath);
 }

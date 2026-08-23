@@ -42,7 +42,7 @@ dependencies:
   # 作用：声明式路由管理
   sqflite: ^2.3.0
   # 作用：SQLite 数据库操作
-  path_provider: ^2.1.0
+  path_provider: ^2.1.6
   # 作用：获取手机存储路径（数据库文件存哪）
   path: ^1.9.0
   # 作用：跨平台路径拼接，比如 join('db', 'words.db')
@@ -64,7 +64,7 @@ dependencies:
   timezone: ^0.9.4
   dotenv: ^4.2.0
   android_intent_plus: ^5.0.0
-  image_picker: ^1.0.7
+  image_picker: ^1.2.3
   flutter_deepseek: ^0.1.1
   shared_preferences: ^2.5.5
 
