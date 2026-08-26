@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../providers/study_stats_provider.dart';
 import '../../domain/entities/study_stats.dart';
+import '../widgets/streak_calendar.dart';
+
 
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -11,7 +13,7 @@ class StatsScreen extends ConsumerStatefulWidget {
   ConsumerState<StatsScreen> createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends ConsumerState<StatsScreen> {
+class _StatsScreenState extends ConsumerState<StatsScreen> with WidgetsBindingObserver {
   // 全局配色 - 与学习页完全统一
   static const Color _bgColor = Color(0xFFF7F8FA);
   static const Color _cardColor = Colors.white;
@@ -24,6 +26,29 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   static const Color _basicColor = Color(0xFFFFB74D);
   static const Color _intermediateColor = Color(0xFF8A9EDB);
   static const Color _advancedColor = Color(0xFF81C784);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // App从后台切回前台，强制刷新页面，Riverpod provider会自动重新拉取数据
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(dailyStudyStatsProvider);
+      ref.invalidate(masteryDistributionProvider);
+      ref.invalidate(totalStudyStatsProvider);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +93,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 20),
+
+            _buildStreakCalendarSection(totalStats),
             const SizedBox(height: 28),
 
             const Text(
@@ -123,6 +151,43 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStreakCalendarSection(AsyncValue<TotalStudyStats> totalAsync) {
+    return totalAsync.when(
+      data: (totalData) {
+        // TODO：当前模拟模式，仅UI体验，无真实打卡业务
+        // 后续接入真实打卡：把mockCheckedDates替换为数据库读取的真实日期列表
+        final mockCheckedDates = <DateTime>[];
+        final int streak = totalData.consecutiveDays;
+        final DateTime today = DateTime.now();
+        final DateTime cleanToday = DateTime(today.year, today.month, today.day);
+
+        for (int i = 0; i < streak; i++) {
+          mockCheckedDates.add(cleanToday.subtract(Duration(days: i)));
+        }
+
+        return StreakCalendar(
+          checkedDates: mockCheckedDates,
+          streakDays: totalData.consecutiveDays,
+          accentColor: _accentColor,
+          cardBgColor: _cardColor,
+          streakBadgeColor: _basicColor,
+        );
+      },
+      loading: () => Container(
+        height: 140,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: _accentColor, strokeWidth: 2),
+        ),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 
@@ -394,6 +459,19 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 // }
 //
 // class _StatsScreenState extends ConsumerState<StatsScreen> {
+//   // 全局配色 - 与学习页完全统一
+//   static const Color _bgColor = Color(0xFFF7F8FA);
+//   static const Color _cardColor = Colors.white;
+//   static const Color _primaryText = Color(0xFF2D3142);
+//   static const Color _secondaryText = Color(0xFF9AA0B4);
+//   static const Color _accentColor = Color(0xFF8A9EDB);
+//   static const Color _accentBg = Color(0xFFF0F3FC);
+//
+//   // 掌握程度配色 - 与学习页评分色系呼应
+//   static const Color _basicColor = Color(0xFFFFB74D);
+//   static const Color _intermediateColor = Color(0xFF8A9EDB);
+//   static const Color _advancedColor = Color(0xFF81C784);
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     final dailyStats = ref.watch(dailyStudyStatsProvider);
@@ -401,43 +479,93 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //     final totalStats = ref.watch(totalStudyStatsProvider);
 //
 //     return Scaffold(
+//       backgroundColor: _bgColor,
 //       appBar: AppBar(
-//         title: const Text('📊 学习统计'),
+//         backgroundColor: Colors.transparent,
+//         elevation: 0,
 //         centerTitle: true,
+//         iconTheme: const IconThemeData(color: _primaryText),
+//         title: const Text(
+//           '学习统计',
+//           style: TextStyle(
+//             fontSize: 18,
+//             fontWeight: FontWeight.w500,
+//             color: _primaryText,
+//             letterSpacing: 1.2,
+//           ),
+//         ),
 //       ),
 //       body: SingleChildScrollView(
-//         padding: const EdgeInsets.all(16),
+//         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
 //         child: Column(
 //           crossAxisAlignment: CrossAxisAlignment.start,
 //           children: [
 //             totalStats.when(
 //               data: (stats) => _buildTotalStatsCard(stats),
-//               loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator())),
-//               error: (err, stack) => const SizedBox(height: 100, child: Center(child: Text('加载失败'))),
+//               loading: () => const SizedBox(
+//                 height: 120,
+//                 child: Center(
+//                   child: CircularProgressIndicator(color: _accentColor, strokeWidth: 2),
+//                 ),
+//               ),
+//               error: (err, stack) => SizedBox(
+//                 height: 120,
+//                 child: Center(
+//                   child: Text('加载失败', style: TextStyle(color: _secondaryText, fontSize: 14)),
+//                 ),
+//               ),
 //             ),
-//             const SizedBox(height: 24),
+//             const SizedBox(height: 28),
 //
 //             const Text(
-//               '📈 近7天学习趋势',
-//               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+//               '近7天学习趋势',
+//               style: TextStyle(
+//                 fontSize: 16,
+//                 fontWeight: FontWeight.w500,
+//                 color: _primaryText,
+//               ),
 //             ),
 //             const SizedBox(height: 12),
 //             dailyStats.when(
 //               data: (data) => _buildLineChart(data),
-//               loading: () => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
-//               error: (err, stack) => const SizedBox(height: 200, child: Center(child: Text('加载失败'))),
+//               loading: () => const SizedBox(
+//                 height: 200,
+//                 child: Center(
+//                   child: CircularProgressIndicator(color: _accentColor, strokeWidth: 2),
+//                 ),
+//               ),
+//               error: (err, stack) => SizedBox(
+//                 height: 200,
+//                 child: Center(
+//                   child: Text('加载失败', style: TextStyle(color: _secondaryText, fontSize: 14)),
+//                 ),
+//               ),
 //             ),
-//             const SizedBox(height: 24),
+//             const SizedBox(height: 28),
 //
 //             const Text(
-//               '🎯 掌握程度分布',
-//               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+//               '掌握程度分布',
+//               style: TextStyle(
+//                 fontSize: 16,
+//                 fontWeight: FontWeight.w500,
+//                 color: _primaryText,
+//               ),
 //             ),
 //             const SizedBox(height: 12),
 //             distribution.when(
 //               data: (data) => _buildPieChart(data),
-//               loading: () => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
-//               error: (err, stack) => const SizedBox(height: 200, child: Center(child: Text('加载失败'))),
+//               loading: () => const SizedBox(
+//                 height: 200,
+//                 child: Center(
+//                   child: CircularProgressIndicator(color: _accentColor, strokeWidth: 2),
+//                 ),
+//               ),
+//               error: (err, stack) => SizedBox(
+//                 height: 200,
+//                 child: Center(
+//                   child: Text('加载失败', style: TextStyle(color: _secondaryText, fontSize: 14)),
+//                 ),
+//               ),
 //             ),
 //           ],
 //         ),
@@ -446,35 +574,49 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //   }
 //
 //   Widget _buildTotalStatsCard(TotalStudyStats stats) {
-//     return Card(
-//       elevation: 2,
-//       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-//       child: Padding(
-//         padding: const EdgeInsets.all(16),
-//         child: Row(
-//           mainAxisAlignment: MainAxisAlignment.spaceAround,
-//           children: [
-//             _buildStatItem('📚', '${stats.totalWords}', '已学单词'),
-//             _buildStatItem('📅', '${stats.totalDays}', '学习天数'),
-//             _buildStatItem('🔥', '${stats.consecutiveDays}', '连续学习'),
-//           ],
-//         ),
+//     return Container(
+//       width: double.infinity,
+//       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+//       decoration: BoxDecoration(
+//         color: _cardColor,
+//         borderRadius: BorderRadius.circular(20),
+//         boxShadow: [
+//           BoxShadow(
+//             color: Colors.black.withOpacity(0.04),
+//             blurRadius: 20,
+//             offset: const Offset(0, 8),
+//           ),
+//         ],
+//       ),
+//       child: Row(
+//         mainAxisAlignment: MainAxisAlignment.spaceAround,
+//         children: [
+//           _buildStatItem(Icons.menu_book_rounded, '${stats.totalWords}', '已学单词'),
+//           _buildStatItem(Icons.calendar_today_rounded, '${stats.totalDays}', '学习天数'),
+//           _buildStatItem(Icons.local_fire_department_rounded, '${stats.consecutiveDays}', '连续学习'),
+//         ],
 //       ),
 //     );
 //   }
 //
-//   Widget _buildStatItem(String icon, String value, String label) {
+//   Widget _buildStatItem(IconData icon, String value, String label) {
 //     return Column(
 //       children: [
-//         Text(icon, style: const TextStyle(fontSize: 28)),
-//         const SizedBox(height: 4),
+//         Icon(icon, size: 26, color: _accentColor),
+//         const SizedBox(height: 8),
 //         Text(
 //           value,
-//           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+//           style: const TextStyle(
+//             fontSize: 24,
+//             fontWeight: FontWeight.w600,
+//             color: _primaryText,
+//             letterSpacing: 0.5,
+//           ),
 //         ),
+//         const SizedBox(height: 2),
 //         Text(
 //           label,
-//           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+//           style: const TextStyle(fontSize: 12, color: _secondaryText),
 //         ),
 //       ],
 //     );
@@ -482,14 +624,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //
 //   Widget _buildLineChart(List<DailyStudyStats> data) {
 //     if (data.isEmpty || data.every((d) => d.count == 0)) {
-//       return Container(
-//         height: 200,
-//         decoration: BoxDecoration(
-//           color: Colors.grey[50],
-//           borderRadius: BorderRadius.circular(12),
-//         ),
-//         child: const Center(child: Text('暂无学习数据')),
-//       );
+//       return _buildEmptyState('暂无学习数据');
 //     }
 //
 //     final maxCount = data.map((d) => d.count).reduce((a, b) => a > b ? a : b);
@@ -502,8 +637,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //             show: true,
 //             horizontalInterval: maxCount > 5 ? maxCount / 5 : 1,
 //             getDrawingHorizontalLine: (value) {
-//               return FlLine(color: Colors.grey[300]!, strokeWidth: 1);
+//               return const FlLine(color: _accentBg, strokeWidth: 1);
 //             },
+//             drawVerticalLine: false,
 //           ),
 //           titlesData: FlTitlesData(
 //             bottomTitles: AxisTitles(
@@ -515,7 +651,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //                   final date = data[index].date;
 //                   return Text(
 //                     '${date.month}/${date.day}',
-//                     style: const TextStyle(fontSize: 10),
+//                     style: const TextStyle(fontSize: 11, color: _secondaryText),
 //                   );
 //                 },
 //               ),
@@ -523,11 +659,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //             leftTitles: AxisTitles(
 //               sideTitles: SideTitles(
 //                 showTitles: true,
-//                 reservedSize: 30,
+//                 reservedSize: 32,
 //                 getTitlesWidget: (value, meta) {
 //                   return Text(
 //                     value.toInt().toString(),
-//                     style: const TextStyle(fontSize: 10),
+//                     style: const TextStyle(fontSize: 11, color: _secondaryText),
 //                   );
 //                 },
 //               ),
@@ -535,7 +671,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
 //             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
 //           ),
-//           borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey[300]!)),
+//           borderData: FlBorderData(show: false),
 //           lineBarsData: [
 //             LineChartBarData(
 //               spots: data.asMap().entries.map((entry) {
@@ -543,12 +679,27 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //               }).toList(),
 //               isCurved: true,
 //               barWidth: 3,
-//               color: Colors.blue,
+//               color: _accentColor,
 //               belowBarData: BarAreaData(
 //                 show: true,
-//                 color: Colors.blue.withAlpha(30),
+//                 gradient: LinearGradient(
+//                   begin: Alignment.topCenter,
+//                   end: Alignment.bottomCenter,
+//                   colors: [
+//                     _accentColor.withOpacity(0.25),
+//                     _accentColor.withOpacity(0.05),
+//                   ],
+//                 ),
 //               ),
-//               dotData: FlDotData(show: true),
+//               dotData: FlDotData(
+//                 show: true,
+//                 getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+//                   radius: 3.5,
+//                   color: _accentColor,
+//                   strokeWidth: 2,
+//                   strokeColor: _cardColor,
+//                 ),
+//               ),
 //             ),
 //           ],
 //           minX: 0,
@@ -560,41 +711,45 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //     );
 //   }
 //
-//   /// ✅ 修改饼图：显示初级/中级/高级掌握
 //   Widget _buildPieChart(MasteryDistribution data) {
 //     final total = data.total;
 //     if (total == 0) {
-//       return Container(
-//         height: 200,
-//         decoration: BoxDecoration(
-//           color: Colors.grey[50],
-//           borderRadius: BorderRadius.circular(12),
-//         ),
-//         child: const Center(child: Text('暂无已学单词')),
-//       );
+//       return _buildEmptyState('暂无已学单词');
 //     }
 //
 //     final sections = [
 //       PieChartSectionData(
 //         value: data.basic.toDouble(),
-//         color: Colors.orange,
+//         color: _basicColor,
 //         title: '${(data.basic / total * 100).toInt()}%',
 //         radius: 50,
-//         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+//         titleStyle: const TextStyle(
+//           fontSize: 13,
+//           fontWeight: FontWeight.w500,
+//           color: Colors.white,
+//         ),
 //       ),
 //       PieChartSectionData(
 //         value: data.intermediate.toDouble(),
-//         color: Colors.blue,
+//         color: _intermediateColor,
 //         title: '${(data.intermediate / total * 100).toInt()}%',
 //         radius: 50,
-//         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+//         titleStyle: const TextStyle(
+//           fontSize: 13,
+//           fontWeight: FontWeight.w500,
+//           color: Colors.white,
+//         ),
 //       ),
 //       PieChartSectionData(
 //         value: data.advanced.toDouble(),
-//         color: Colors.green,
+//         color: _advancedColor,
 //         title: '${(data.advanced / total * 100).toInt()}%',
 //         radius: 50,
-//         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+//         titleStyle: const TextStyle(
+//           fontSize: 13,
+//           fontWeight: FontWeight.w500,
+//           color: Colors.white,
+//         ),
 //       ),
 //     ];
 //
@@ -606,8 +761,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //             child: PieChart(
 //               PieChartData(
 //                 sections: sections,
-//                 centerSpaceRadius: 30,
-//                 sectionsSpace: 2,
+//                 centerSpaceRadius: 36,
+//                 sectionsSpace: 1.5,
 //               ),
 //             ),
 //           ),
@@ -616,11 +771,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //             mainAxisAlignment: MainAxisAlignment.center,
 //             crossAxisAlignment: CrossAxisAlignment.start,
 //             children: [
-//               _buildLegendItem(Colors.orange, '初级掌握', data.basic, total),
-//               const SizedBox(height: 8),
-//               _buildLegendItem(Colors.blue, '中级掌握', data.intermediate, total),
-//               const SizedBox(height: 8),
-//               _buildLegendItem(Colors.green, '高级掌握', data.advanced, total),
+//               _buildLegendItem(_basicColor, '初级掌握', data.basic, total),
+//               const SizedBox(height: 10),
+//               _buildLegendItem(_intermediateColor, '中级掌握', data.intermediate, total),
+//               const SizedBox(height: 10),
+//               _buildLegendItem(_advancedColor, '高级掌握', data.advanced, total),
 //             ],
 //           ),
 //         ],
@@ -628,15 +783,47 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 //     );
 //   }
 //
-//   /// ✅ 图例项（显示百分比）
 //   Widget _buildLegendItem(Color color, String label, int count, int total) {
 //     final percentage = total > 0 ? (count / total * 100).toStringAsFixed(1) : '0.0';
 //     return Row(
 //       children: [
-//         Container(width: 16, height: 16, color: color),
+//         Container(
+//           width: 12,
+//           height: 12,
+//           decoration: BoxDecoration(
+//             color: color,
+//             borderRadius: BorderRadius.circular(3),
+//           ),
+//         ),
 //         const SizedBox(width: 8),
-//         Text('$label: $count ($percentage%)'),
+//         Text(
+//           label,
+//           style: const TextStyle(fontSize: 13, color: _primaryText),
+//         ),
+//         const SizedBox(width: 4),
+//         Text(
+//           '$count · $percentage%',
+//           style: const TextStyle(fontSize: 12, color: _secondaryText),
+//         ),
 //       ],
+//     );
+//   }
+//
+//   /// 统一空状态样式
+//   Widget _buildEmptyState(String text) {
+//     return Container(
+//       height: 200,
+//       width: double.infinity,
+//       decoration: BoxDecoration(
+//         color: _accentBg,
+//         borderRadius: BorderRadius.circular(16),
+//       ),
+//       child: Center(
+//         child: Text(
+//           text,
+//           style: const TextStyle(fontSize: 14, color: _secondaryText),
+//         ),
+//       ),
 //     );
 //   }
 // }
