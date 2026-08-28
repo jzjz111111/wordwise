@@ -21,6 +21,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
   bool _isLoginMode = true;
 
+  // 与单词详情统一的 INS 极简配色
+  static const Color _bgColor = Color(0xFFF7F8FA);
+  static const Color _cardColor = Colors.white;
+  static const Color _primaryText = Color(0xFF2D3142);
+  static const Color _secondaryText = Color(0xFF9AA0B4);
+  static const Color _accentColor = Color(0xFF8A9EDB);
+  static const Color _accentBg = Color(0xFFF0F3FC);
+  static const Color _warningColor = Color(0xFFFF8A75);
+  static const Color _successColor = Color(0xFF66BB6A);
+
   Future<void> _submit() async {
     setState(() => _isLoading = true);
 
@@ -29,21 +39,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (_isLoginMode) {
         await auth.signIn(_emailController.text, _passwordController.text);
         if (mounted) {
-          // ✅ 登录后检查词库
           final db = await DatabaseHelper.instance.database;
-
           final syncService = SyncService();
           await syncService.downloadFromCloud();
           await syncService.downloadWrongWordsFromCloud();
 
-          //  清除统计缓存，确保加载当前用户的数据
           ref.invalidate(dailyStudyStatsProvider);
           ref.invalidate(masteryDistributionProvider);
           ref.invalidate(totalStudyStatsProvider);
 
           context.go('/home');
         }
-      }  else {
+      } else {
         await auth.signUp(_emailController.text, _passwordController.text);
         await auth.signOut();
         if (mounted) {
@@ -77,61 +84,481 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              '📚 WordWise',
-              style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
+      backgroundColor: _bgColor,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildLogo(),
+                const SizedBox(height: 48),
+                _buildCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildModeSwitch(),
+                      const SizedBox(height: 24),
+                      _buildEmailField(),
+                      const SizedBox(height: 16),
+                      _buildPasswordField(),
+                      const SizedBox(height: 24),
+                      _buildSubmitButton(),
+                      const SizedBox(height: 8),
+                      _buildToggleText(),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 48),
+          ),
+        ),
+      ),
+    );
+  }
 
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: '邮箱',
-                border: OutlineInputBorder(),
+  // 顶部 Logo 区域（可替换为你的品牌图片）
+  Widget _buildLogo() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.8, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutBack,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_accentColor, _accentColor.withOpacity(0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              keyboardType: TextInputType.emailAddress,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: _accentColor.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
+            child: const Icon(
+              Icons.menu_book_rounded,
+              color: Colors.white,
+              size: 40,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'WordWise',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: _primaryText,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '智慧背单词',
+            style: TextStyle(
+              fontSize: 14,
+              color: _secondaryText,
+              letterSpacing: 2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(
-                labelText: '密码',
-                border: OutlineInputBorder(),
+  // 通用卡片容器
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  // 登录/注册模式切换（胶囊分段控件）
+  Widget _buildModeSwitch() {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: _accentBg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isLoginMode = true),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color: _isLoginMode ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: _isLoginMode
+                      ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '登录',
+                  style: TextStyle(
+                    color: _isLoginMode ? _accentColor : _secondaryText,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
               ),
-              obscureText: true,
             ),
-            const SizedBox(height: 24),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isLoginMode = false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color: !_isLoginMode ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: !_isLoginMode
+                      ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '注册',
+                  style: TextStyle(
+                    color: !_isLoginMode ? _accentColor : _secondaryText,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
+  // 邮箱输入框
+  Widget _buildEmailField() {
+    return TextField(
+      controller: _emailController,
+      keyboardType: TextInputType.emailAddress,
+      style: const TextStyle(color: _primaryText, fontSize: 15),
+      decoration: InputDecoration(
+        labelText: '邮箱',
+        labelStyle: const TextStyle(color: _secondaryText),
+        prefixIcon: const Icon(Icons.email_outlined, color: _accentColor),
+        filled: true,
+        fillColor: _bgColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _accentColor, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      ),
+    );
+  }
+
+  // 密码输入框
+  Widget _buildPasswordField() {
+    return TextField(
+      controller: _passwordController,
+      obscureText: true,
+      style: const TextStyle(color: _primaryText, fontSize: 15),
+      decoration: InputDecoration(
+        labelText: '密码',
+        labelStyle: const TextStyle(color: _secondaryText),
+        prefixIcon: const Icon(Icons.lock_outline, color: _accentColor),
+        filled: true,
+        fillColor: _bgColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _accentColor, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      ),
+    );
+  }
+
+  // 提交按钮（带按压缩放和加载状态）
+  Widget _buildSubmitButton() {
+    return StatefulBuilder(
+      builder: (context, setBtnState) {
+        double scale = 1.0;
+        return GestureDetector(
+          onTapDown: (_) => setBtnState(() => scale = 0.97),
+          onTapUp: (_) => setBtnState(() => scale = 1.0),
+          onTapCancel: () => setBtnState(() => scale = 1.0),
+          onTap: _isLoading ? null : _submit,
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            child: Container(
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: _isLoading
+                      ? [_accentColor.withOpacity(0.5), _accentColor.withOpacity(0.5)]
+                      : [_accentColor, _accentColor.withOpacity(0.8)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: _accentColor.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Center(
                 child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : Text(_isLoginMode ? '登录' : '注册'),
+                    ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+                    : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isLoginMode ? Icons.login_rounded : Icons.person_add_alt_1_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isLoginMode ? '登录' : '注册',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 12),
+          ),
+        );
+      },
+    );
+  }
 
-            TextButton(
-              onPressed: () {
-                setState(() => _isLoginMode = !_isLoginMode);
-              },
-              child: Text(
-                _isLoginMode
-                    ? '还没有账号？点击注册'
-                    : '已有账号？点击登录',
-              ),
-            ),
-          ],
+  // 底部切换文本按钮
+  Widget _buildToggleText() {
+    return Center(
+      child: TextButton(
+        onPressed: () {
+          setState(() => _isLoginMode = !_isLoginMode);
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: _secondaryText,
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+        ),
+        child: Text(
+          _isLoginMode ? '还没有账号？点击注册' : '已有账号？点击登录',
+          style: TextStyle(
+            color: _secondaryText,
+            decoration: TextDecoration.underline,
+            decorationColor: _secondaryText.withOpacity(0.5),
+          ),
         ),
       ),
     );
   }
 }
+// import 'package:flutter/material.dart';
+// import 'package:flutter_riverpod/flutter_riverpod.dart';
+// import 'package:go_router/go_router.dart';
+// import '../../../../core/database/database_helper.dart';
+// import '../../../../core/database/word_importer.dart';
+// import '../../../study/presentation/providers/study_stats_provider.dart';
+// import '../providers/auth_provider.dart';
+// import '../../../../features/study/presentation/providers/study_provider.dart';
+// import '../../../../core/services/sync_service.dart';
+//
+// class LoginScreen extends ConsumerStatefulWidget {
+//   const LoginScreen({super.key});
+//
+//   @override
+//   ConsumerState<LoginScreen> createState() => _LoginScreenState();
+// }
+//
+// class _LoginScreenState extends ConsumerState<LoginScreen> {
+//   final _emailController = TextEditingController();
+//   final _passwordController = TextEditingController();
+//   bool _isLoading = false;
+//   bool _isLoginMode = true;
+//
+//   Future<void> _submit() async {
+//     setState(() => _isLoading = true);
+//
+//     try {
+//       final auth = ref.read(authProvider);
+//       if (_isLoginMode) {
+//         await auth.signIn(_emailController.text, _passwordController.text);
+//         if (mounted) {
+//           // ✅ 登录后检查词库
+//           final db = await DatabaseHelper.instance.database;
+//
+//           final syncService = SyncService();
+//           await syncService.downloadFromCloud();
+//           await syncService.downloadWrongWordsFromCloud();
+//
+//           //  清除统计缓存，确保加载当前用户的数据
+//           ref.invalidate(dailyStudyStatsProvider);
+//           ref.invalidate(masteryDistributionProvider);
+//           ref.invalidate(totalStudyStatsProvider);
+//
+//           context.go('/home');
+//         }
+//       }  else {
+//         await auth.signUp(_emailController.text, _passwordController.text);
+//         await auth.signOut();
+//         if (mounted) {
+//           setState(() {
+//             _isLoginMode = true;
+//             _passwordController.clear();
+//           });
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             const SnackBar(content: Text('注册成功！请登录')),
+//           );
+//         }
+//       }
+//     } catch (e) {
+//       if (mounted) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(content: Text('错误: $e')),
+//         );
+//       }
+//     }
+//
+//     setState(() => _isLoading = false);
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final auth = ref.watch(authProvider);
+//     if (auth.isLoggedIn) {
+//       WidgetsBinding.instance.addPostFrameCallback((_) {
+//         context.go('/home');
+//       });
+//     }
+//
+//     return Scaffold(
+//       body: Padding(
+//         padding: const EdgeInsets.all(32.0),
+//         child: Column(
+//           mainAxisAlignment: MainAxisAlignment.center,
+//           children: [
+//             const Text(
+//               '📚 WordWise',
+//               style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
+//             ),
+//             const SizedBox(height: 48),
+//
+//             TextField(
+//               controller: _emailController,
+//               decoration: const InputDecoration(
+//                 labelText: '邮箱',
+//                 border: OutlineInputBorder(),
+//               ),
+//               keyboardType: TextInputType.emailAddress,
+//             ),
+//             const SizedBox(height: 16),
+//
+//             TextField(
+//               controller: _passwordController,
+//               decoration: const InputDecoration(
+//                 labelText: '密码',
+//                 border: OutlineInputBorder(),
+//               ),
+//               obscureText: true,
+//             ),
+//             const SizedBox(height: 24),
+//
+//             SizedBox(
+//               width: double.infinity,
+//               child: ElevatedButton(
+//                 onPressed: _isLoading ? null : _submit,
+//                 child: _isLoading
+//                     ? const CircularProgressIndicator()
+//                     : Text(_isLoginMode ? '登录' : '注册'),
+//               ),
+//             ),
+//             const SizedBox(height: 12),
+//
+//             TextButton(
+//               onPressed: () {
+//                 setState(() => _isLoginMode = !_isLoginMode);
+//               },
+//               child: Text(
+//                 _isLoginMode
+//                     ? '还没有账号？点击注册'
+//                     : '已有账号？点击登录',
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }

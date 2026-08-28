@@ -59,8 +59,8 @@ dependencies:
   # 作用：绘制图表（折线图、饼图）
   shimmer: ^3.0.0
   # 作用：骨架屏加载动画，弱网优化
-  flutter_tts: ^3.8.0
-  # 作用：文字转语音（发音功能
+  flutter_tts: ^3.8.5
+  # 作用：文字转语音发音功能
   timezone: ^0.9.4
   dotenv: ^4.2.0
   android_intent_plus: ^5.0.0
@@ -84,6 +84,21 @@ dev_dependencies:
   json_serializable: ^6.7.1
   # 作用：自动生成 JSON 序列化代码（fromJson/toJson）
   flutter_lints: ^6.0.0
+
+  flutter_launcher_icons: ^0.13.1
+
+  flutter_native_splash: ^2.3.9
+
+flutter_launcher_icons:
+  image_path: "assets/icon/icon.png"
+  android: true
+  ios: true
+
+flutter_native_splash:
+  color: "#FFFFFF"                # 背景色（图片未覆盖区域或过渡时显示）
+  image: assets/splash/splash1.png        # 全屏图片
+  android_gravity: fill                  # Android 图片填充方式（铺满屏幕）
+  ios_content_mode: scaleAspectFill      # iOS 图片填充方式（保持比例填充，可能裁剪）
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
