@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/word.dart';
 import '../../domain/repositories/word_repository.dart';
@@ -128,38 +129,36 @@ class StudyNotifier extends StateNotifier<StudyState> {
     );
   }
   /// 评分并进入下一个单词
-  Future<void> rateWord(int quality) async {
-    print('🔥 rateWord 开始, quality=$quality');
-
-    if (!state.hasMoreWords) {
-      print('🔥 没有更多单词，退出');
-      return;
-    }
+  void rateWord(int quality) {
+    if (!state.hasMoreWords) return;
 
     final currentWord = state.currentWord!;
-    print('🔥 当前单词: ${currentWord.word}, id=${currentWord.id}');
+    final nextIndex = state.currentIndex + 1;
 
+    // 1. 立刻更新UI，切换到下一个单词（零延迟）
+    state = state.copyWith(
+      currentIndex: nextIndex,
+      error: null,
+    );
+
+    // 2. 后台异步执行数据库写入，完全不阻塞UI
+    _saveWordResult(currentWord.id!, quality);
+  }
+
+  /// 后台静默写入学习结果（本地+云端）
+  Future<void> _saveWordResult(int wordId, int quality) async {
     try {
       final repository = ref.read(wordRepositoryProvider);
-      print('🔥 调用 studyWord 前');
       await repository.studyWord(
-        wordId: currentWord.id!,
+        wordId: wordId,
         quality: quality,
       );
-      print('🔥 studyWord 成功');
-
-      state = state.copyWith(
-        currentIndex: state.currentIndex + 1,
-      );
-      print('🔥 索引更新为 ${state.currentIndex}');
-
     } catch (e) {
-      print('🔥 出错: $e');
-      state = state.copyWith(
-        error: e.toString(),
-      );
+      // 写入失败静默处理，不打断用户学习流程
+      debugPrint('单词学习结果写入失败: $e');
     }
   }
+
 
   /// 重新加载
   Future<void> refresh() async {
