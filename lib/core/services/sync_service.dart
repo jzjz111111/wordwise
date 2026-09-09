@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../features/study/data/repositories/favorite_word_repository_impl.dart';
+import '../../features/study/data/repositories/new_word_repository_impl.dart';
 import '../../features/study/domain/entities/study_record.dart';
 import '../database/database_helper.dart';
 
@@ -275,5 +277,23 @@ class SyncService {
         .from('wrong_words')
         .delete()
         .eq('user_id', userId);
+  }
+
+  /// 从云端拉取生词本数据到本地
+  Future<void> downloadNewWordsFromCloud() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final repo = NewWordRepositoryImpl();
+    await repo.pullFromCloud(userId);
+  }
+
+  /// 从云端拉取收藏本数据到本地
+  Future<void> downloadFavoritesFromCloud() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final repo = FavoriteWordRepositoryImpl();
+    await repo.pullFromCloud(userId);
   }
 }

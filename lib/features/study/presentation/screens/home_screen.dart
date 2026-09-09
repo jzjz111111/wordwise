@@ -5,6 +5,8 @@ import '../../domain/entities/daily_sentence.dart';
 import '../../domain/entities/study_stats.dart';
 import '../../domain/entities/word.dart';
 import '../providers/study_provider.dart';
+import 'favorite_word_screen.dart';
+import 'new_word_screen.dart';
 import 'study_screen.dart';
 import '../providers/word_category_provider.dart';
 import 'wrong_word_screen.dart';
@@ -44,7 +46,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalStatsAsync = ref.watch(totalStudyStatsProvider);
 
     return Scaffold(
       backgroundColor: _bgColor,
@@ -52,8 +53,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         index: _selectedIndex,
         children: [
           _buildHomePage(),
-          const StatsScreen(),
           const WrongWordScreen(),
+          const StatsScreen(),
           const ProfileScreen(),
         ],
       ),
@@ -63,6 +64,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           setState(() {
             _selectedIndex = index;
           });
+          if (index == 2) {
+            ref.invalidate(dailyStudyStatsProvider);
+            ref.invalidate(masteryDistributionProvider);
+            ref.invalidate(totalStudyStatsProvider);
+          }
+          // 切到个人页（第4个标签，索引为3）时，自动刷新总统计数据
+          if (index == 3) {
+            ref.invalidate(totalStudyStatsProvider);
+          }
         },
         backgroundColor: _cardColor,
         elevation: 0,
@@ -76,14 +86,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: '首页',
           ),
           NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined, color: _secondaryText, size: 24),
-            selectedIcon: Icon(Icons.bar_chart_rounded, color: _accentColor, size: 24),
-            label: '统计',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.error_outline, color: _secondaryText, size: 24),
             selectedIcon: Icon(Icons.error_rounded, color: _accentColor, size: 24),
             label: '错词本',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined, color: _secondaryText, size: 24),
+            selectedIcon: Icon(Icons.bar_chart_rounded, color: _accentColor, size: 24),
+            label: '统计',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline, color: _secondaryText, size: 24),
@@ -107,40 +117,87 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. 顶部问候栏（使用真实连续天数）
           _buildTopHeader(totalStatsAsync),
           const SizedBox(height: 10),
-
-          //每日例句
           _buildDailySentenceCard(),
           const SizedBox(height: 10),
-
-          // 2. 词库切换胶囊
-          _buildCategoryChip(category),
+          _buildCategoryChip(category, statsAsync), // 传入statsAsync用于判断状态
           const SizedBox(height: 24),
 
-          // 3. 核心进度大卡片
+          // ========== 核心：双状态分支 ==========
           statsAsync.when(
-            data: (stats) => _buildMainProgressCard(stats),
+            data: (stats) {
+              final total = stats['total'] ?? 0;
+              if (total == 0) {
+                // 未导入词库：显示空状态引导
+                return _buildEmptyLibraryState();
+              } else {
+                // 已导入词库：正常渲染全部内容
+                return Column(
+                  children: [
+                    _buildMainProgressCard(stats),
+                    const SizedBox(height: 20),
+                    _buildStatsOverview(wordsAsync, statsAsync),
+                    const SizedBox(height: 28),
+                    _buildMainActionButtons(wordsAsync),
+                    const SizedBox(height: 32),
+                    _buildQuickActions(),
+                  ],
+                );
+              }
+            },
             loading: () => _buildLoadingCard(height: 280),
             error: (err, stack) => _buildErrorCard('加载失败: $err'),
           ),
-          const SizedBox(height: 20),
-
-          // 4. 数据概览卡片组
-          _buildStatsOverview(wordsAsync, statsAsync),
-          const SizedBox(height: 28),
-
-          // 5. 主操作按钮区
-          _buildMainActionButtons(wordsAsync),
-          const SizedBox(height: 32),
-
-          // 6. 快捷功能入口
-          _buildQuickActions(),
         ],
       ),
     );
   }
+  // Widget _buildHomePage() {
+  //   final statsAsync = ref.watch(todayStatsProvider);
+  //   final wordsAsync = ref.watch(todayWordsProvider);
+  //   final category = ref.watch(currentCategoryProvider);
+  //   final totalStatsAsync = ref.watch(totalStudyStatsProvider);
+  //
+  //   return SingleChildScrollView(
+  //     padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         // 1. 顶部问候栏（使用真实连续天数）
+  //         _buildTopHeader(totalStatsAsync),
+  //         const SizedBox(height: 10),
+  //
+  //         //每日例句
+  //         _buildDailySentenceCard(),
+  //         const SizedBox(height: 10),
+  //
+  //         // 2. 词库切换胶囊
+  //         _buildCategoryChip(category),
+  //         const SizedBox(height: 24),
+  //
+  //         // 3. 核心进度大卡片
+  //         statsAsync.when(
+  //           data: (stats) => _buildMainProgressCard(stats),
+  //           loading: () => _buildLoadingCard(height: 280),
+  //           error: (err, stack) => _buildErrorCard('加载失败: $err'),
+  //         ),
+  //         const SizedBox(height: 20),
+  //
+  //         // 4. 数据概览卡片组
+  //         _buildStatsOverview(wordsAsync, statsAsync),
+  //         const SizedBox(height: 28),
+  //
+  //         // 5. 主操作按钮区
+  //         _buildMainActionButtons(wordsAsync),
+  //         const SizedBox(height: 32),
+  //
+  //         // 6. 快捷功能入口
+  //         _buildQuickActions(),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   // ========== 1. 顶部标题栏：接入真实连续天数数据源 ==========
   Widget _buildTopHeader(AsyncValue<TotalStudyStats> totalStatsAsync) {
@@ -206,7 +263,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ========== 2. 词库切换胶囊 ==========
-  Widget _buildCategoryChip(String category) {
+  Widget _buildCategoryChip(String category, AsyncValue<Map<String, int>> statsAsync) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -225,12 +282,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Icon(Icons.menu_book_rounded, size: 16, color: _accentColor),
             const SizedBox(width: 6),
-            Text(
-              _getCategoryName(category),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: _accentColor,
+            statsAsync.when(
+              data: (stats) {
+                final total = stats['total'] ?? 0;
+                return Text(
+                  total == 0 ? '请导入词库' : _getCategoryName(category),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _accentColor,
+                  ),
+                );
+              },
+              loading: () => Text(
+                '加载中...',
+                style: TextStyle(fontSize: 13, color: _accentColor),
+              ),
+              error: (_, __) => Text(
+                '请导入词库',
+                style: TextStyle(fontSize: 13, color: _accentColor),
               ),
             ),
             const SizedBox(width: 4),
@@ -244,8 +314,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ========== 3. 核心进度大卡片 ==========
   Widget _buildMainProgressCard(Map<String, int> stats) {
     final total = stats['total'] ?? 1;
-    final mastered = stats['mastered'] ?? 0;
-    final progress = total > 0 ? mastered / total : 0.0;
+    final reviewed = stats['reviewed'] ?? 0;
+    final progress = total > 0 ? reviewed / total : 0.0;
 
     return Container(
       width: double.infinity,
@@ -264,7 +334,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         children: [
           const Text(
-            '词库掌握进度',
+            '词库背诵进度',
             style: TextStyle(fontSize: 14, color: Colors.white70),
           ),
           const SizedBox(height: 16),
@@ -312,7 +382,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$mastered / $total',
+                      '$reviewed / $total',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Colors.white70,
@@ -328,11 +398,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildProgressItem('已掌握', '$mastered', Colors.white),
+              _buildProgressItem('已背诵', '$reviewed', Colors.white),
               Container(width: 1, height: 32, color: Colors.white24),
               _buildProgressItem('总词汇', '$total', Colors.white),
               Container(width: 1, height: 32, color: Colors.white24),
-              _buildProgressItem('剩余', '${total - mastered}', Colors.white),
+              _buildProgressItem('剩余', '${total - reviewed}', Colors.white),
             ],
           ),
         ],
@@ -583,11 +653,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ========== 6. 快捷功能入口 ==========
+  // ========== 6. 快捷功能入口 ==========
   Widget _buildQuickActions() {
     final items = [
       {'icon': Icons.error_rounded, 'label': '错词本', 'color': const Color(0xFFEF4444)},
-      {'icon': Icons.bar_chart_rounded, 'label': '学习统计', 'color': _accentColor},
-      {'icon': Icons.menu_book_rounded, 'label': '词库管理', 'color': const Color(0xFF0EA5E9)},
+      {'icon': Icons.menu_book_rounded, 'label': '生词本', 'color': const Color(0xFF0EA5E9)},
+      {'icon': Icons.star_rounded, 'label': '收藏本', 'color': const Color(0xFFFFB74D)},
       {'icon': Icons.emoji_events_rounded, 'label': '成就徽章', 'color': _basicColor},
     ];
 
@@ -610,15 +681,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onTap: () {
                 switch (item['label'] as String) {
                   case '错词本':
-                    setState(() => _selectedIndex = 2);
+                    setState(() {
+                      _selectedIndex = 1;
+                    });
                     break;
-                  case '学习统计':
-                    setState(() => _selectedIndex = 1);
-                    break;
-                  case '词库管理':
+                  case '生词本':
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const WordLibraryScreen()),
+                      MaterialPageRoute(builder: (_) => const NewWordScreen()),
+                    );
+                    break;
+                  case '收藏本':
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FavoriteWordScreen()),
+                    );
+                    break;
+                  case '成就徽章':
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('成就系统即将上线'),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     );
                     break;
                 }
@@ -746,7 +831,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ========== 背新词数量选择弹窗 ==========
   void _showCountPicker(BuildContext context, WidgetRef ref) {
-    final List<int> presetCounts = List.generate(30, (index) => (index + 1) * 10);
+    final List<int> presetCounts = [10, 20, 30, 40, 50,60,70,80];
     int selectedCount = 10;
 
     showDialog(
@@ -794,7 +879,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeOutCubic,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
                               decoration: BoxDecoration(
                                 color: isSelected ? _accentColor : _accentBg,
                                 borderRadius: BorderRadius.circular(10),
@@ -804,7 +889,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 style: TextStyle(
                                   color: isSelected ? Colors.white : _primaryText,
                                   fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                                  fontSize: 14,
+                                  fontSize: 28,
                                 ),
                               ),
                             ),
@@ -897,59 +982,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
   }
-  // void _startLearningNewWords(BuildContext context, WidgetRef ref, int count) async {
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(
-  //       content: const Text('加载中...'),
-  //       duration: const Duration(milliseconds: 500),
-  //       behavior: SnackBarBehavior.floating,
-  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  //     ),
-  //   );
-  //
-  //   try {
-  //     final asyncValue = await ref.refresh(newWordsProvider(count));
-  //
-  //     asyncValue.when(
-  //       data: (words) {
-  //         if (words.isEmpty) {
-  //           ScaffoldMessenger.of(context).showSnackBar(
-  //             SnackBar(
-  //               content: const Text('没有更多新词了！'),
-  //               behavior: SnackBarBehavior.floating,
-  //               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  //             ),
-  //           );
-  //           return;
-  //         }
-  //         Navigator.push(
-  //           context,
-  //           MaterialPageRoute(
-  //             builder: (context) => StudyScreen(initialWords: words),
-  //           ),
-  //         );
-  //       },
-  //       loading: () {},
-  //       error: (err, stack) {
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           SnackBar(
-  //             content: Text('加载失败: $err'),
-  //             behavior: SnackBarBehavior.floating,
-  //             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  //           ),
-  //         );
-  //       },
-  //     );
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text('加载失败: $e'),
-  //         behavior: SnackBarBehavior.floating,
-  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  //       ),
-  //     );
-  //   }
-  // }
+
+  Widget _buildEmptyLibraryState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.menu_book_outlined,
+            size: 48,
+            color: _secondaryText.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '还没有导入词库',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: _primaryText,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '导入对应词库后即可开始背单词',
+            style: TextStyle(
+              fontSize: 13,
+              color: _secondaryText,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: _buildOutlineButton(
+              label: '去导入词库',
+              icon: Icons.add_rounded,
+              enabled: true,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const WordLibraryScreen()),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
 
 }

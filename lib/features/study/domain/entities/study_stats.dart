@@ -33,10 +33,12 @@ class TotalStudyStats {
   final int totalDays;      // 总学习天数
   final int totalWords;     // 总学习单词数（至少学过1次）
   final int consecutiveDays; // 连续学习天数
+  final int totalMastered;  // 总已掌握单词数（mastery_level >= 5）
 
   TotalStudyStats({
     required this.totalDays,
     required this.totalWords,
     required this.consecutiveDays,
+    required this.totalMastered,
   });
 }

@@ -1,0 +1,150 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/new_word_provider.dart';
+import '../providers/word_category_provider.dart';
+import '../../domain/entities/word.dart';
+
+class NewWordScreen extends ConsumerStatefulWidget {
+  const NewWordScreen({super.key});
+
+  @override
+  ConsumerState<NewWordScreen> createState() => _NewWordScreenState();
+}
+
+class _NewWordScreenState extends ConsumerState<NewWordScreen> {
+  static const Color _bgColor = Color(0xFFF7F8FA);
+  static const Color _cardColor = Colors.white;
+  static const Color _primaryText = Color(0xFF2D3142);
+  static const Color _secondaryText = Color(0xFF9AA0B4);
+  static const Color _accentColor = Color(0xFF8A9EDB);
+
+  @override
+  Widget build(BuildContext context) {
+    final newWordAsync = ref.watch(newWordListProvider);
+    final category = ref.watch(currentCategoryProvider);
+
+    return Scaffold(
+      backgroundColor: _bgColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: _primaryText),
+        title: const Text(
+          '生词本',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: _primaryText,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ),
+      body: newWordAsync.when(
+        data: (words) {
+          if (words.isEmpty) {
+            return _buildEmptyState();
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            itemCount: words.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              return _buildWordItem(words[index]);
+            },
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: _accentColor, strokeWidth: 2),
+        ),
+        error: (err, stack) => Center(
+          child: Text('加载失败: $err', style: const TextStyle(color: _secondaryText)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWordItem(Word word) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  word.word,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _primaryText,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  word.meaning,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _secondaryText,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFFF8A75)),
+            onPressed: () {
+              ref.read(removeNewWordProvider(word.id!));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('已移出生词本'),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.menu_book_outlined,
+            size: 64,
+            color: _secondaryText.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '暂无生词',
+            style: TextStyle(fontSize: 16, color: _secondaryText),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '学习中答错的单词会自动加入这里',
+            style: TextStyle(fontSize: 13, color: _secondaryText.withOpacity(0.7)),
+          ),
+        ],
+      ),
+    );
+  }
+}

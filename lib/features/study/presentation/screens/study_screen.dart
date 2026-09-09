@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/favorite_word_provider.dart';
+import '../providers/new_word_provider.dart';
 import '../providers/study_provider.dart';
 import '../../domain/entities/word.dart';
 import 'spell_test_screen.dart';
@@ -88,7 +90,11 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // 返回前刷新首页统计数据
+            ref.invalidate(todayStatsProvider);
+            Navigator.pop(context);
+          },
         ),
       ),
       body: Padding(
@@ -141,58 +147,176 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
 
         // 3D翻转单词卡片
         Expanded(
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _isShowingBack = !_isShowingBack;
-              });
-            },
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: _isShowingBack ? pi : 0),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) {
-                // 添加透视效果，增强3D立体感
-                final transform = Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..rotateY(value);
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isShowingBack = !_isShowingBack;
+                  });
+                },
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: _isShowingBack ? pi : 0),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    final transform = Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateY(value);
 
-                // 翻转超过90°时切换正反面，避免穿帮
-                final showBack = value > pi / 2;
+                    final showBack = value > pi / 2;
 
-                return Transform(
-                  transform: transform,
-                  alignment: Alignment.center,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+                    return Transform(
+                      transform: transform,
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: _cardColor,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                         ),
-                      ],
+                        child: Center(
+                          child: showBack
+                              ? Transform(
+                            transform: Matrix4.identity()..rotateY(pi),
+                            alignment: Alignment.center,
+                            child: _buildCardBack(word),
+                          )
+                              : _buildCardFront(word),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // 右上角悬浮操作组
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Row(
+                  children: [
+                    _buildCardIconButton(
+                      icon: Icons.star_border_rounded,
+                      activeIcon: Icons.star,
+                      color: const Color(0xFFFFB74D),
+                      isActive: ref.watch(isFavoriteProvider(word.id!)).value ?? false,
+                      onTap: () {
+                        final isFavorite = ref.read(isFavoriteProvider(word.id!)).value ?? false;
+                        if (isFavorite) {
+                          ref.read(removeFavoriteProvider(word.id!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('已取消收藏'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        } else {
+                          ref.read(addFavoriteProvider(word.id!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('已加入收藏本'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
                     ),
-                    child: Center(
-                      child: showBack
-                      // 背面预先翻转180°，卡片整体转到位后文字刚好正向
-                          ? Transform(
-                        transform: Matrix4.identity()..rotateY(pi),
-                        alignment: Alignment.center,
-                        child: _buildCardBack(word),
-                      )
-                          : _buildCardFront(word),
+                    const SizedBox(width: 8),
+                    _buildCardIconButton(
+                      icon: Icons.label_important_outline,
+                      activeIcon: Icons.label_important,
+                      color: const Color(0xFFFF8A75),
+                      isActive: ref.watch(isInNewWordProvider(word.id!)).value ?? false,
+                      onTap: () {
+                        final isInNew = ref.read(isInNewWordProvider(word.id!)).value ?? false;
+                        if (isInNew) {
+                          ref.read(removeNewWordProvider(word.id!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('已移出生词本'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        } else {
+                          ref.read(addNewWordProvider(word.id!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('已加入生词本'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
                     ),
-                  ),
-                );
-              },
-            ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
+        // // 3D翻转单词卡片
+        // Expanded(
+        //   child: GestureDetector(
+        //     onTap: () {
+        //       setState(() {
+        //         _isShowingBack = !_isShowingBack;
+        //       });
+        //     },
+        //     child: TweenAnimationBuilder<double>(
+        //       tween: Tween<double>(begin: 0, end: _isShowingBack ? pi : 0),
+        //       duration: const Duration(milliseconds: 300),
+        //       curve: Curves.easeOutCubic,
+        //       builder: (context, value, child) {
+        //         // 添加透视效果，增强3D立体感
+        //         final transform = Matrix4.identity()
+        //           ..setEntry(3, 2, 0.001)
+        //           ..rotateY(value);
+        //
+        //         // 翻转超过90°时切换正反面，避免穿帮
+        //         final showBack = value > pi / 2;
+        //
+        //         return Transform(
+        //           transform: transform,
+        //           alignment: Alignment.center,
+        //           child: Container(
+        //             width: double.infinity,
+        //             padding: const EdgeInsets.all(32),
+        //             decoration: BoxDecoration(
+        //               color: _cardColor,
+        //               borderRadius: BorderRadius.circular(24),
+        //               boxShadow: [
+        //                 BoxShadow(
+        //                   color: Colors.black.withOpacity(0.04),
+        //                   blurRadius: 20,
+        //                   offset: const Offset(0, 8),
+        //                 ),
+        //               ],
+        //             ),
+        //             child: Center(
+        //               child: showBack
+        //               // 背面预先翻转180°，卡片整体转到位后文字刚好正向
+        //                   ? Transform(
+        //                 transform: Matrix4.identity()..rotateY(pi),
+        //                 alignment: Alignment.center,
+        //                 child: _buildCardBack(word),
+        //               )
+        //                   : _buildCardFront(word),
+        //             ),
+        //           ),
+        //         );
+        //       },
+        //     ),
+        //   ),
+        // ),
         const SizedBox(height: 24),
 
         // 评分按钮组
@@ -350,6 +474,45 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     );
   }
 
+  // 卡片悬浮图标按钮
+  Widget _buildCardIconButton({
+    required IconData icon,
+    required IconData activeIcon,
+    required Color color,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return StatefulBuilder(
+      builder: (context, setBtnState) {
+        double scale = 1.0;
+        return GestureDetector(
+          onTapDown: (_) => setBtnState(() => scale = 0.9),
+          onTapUp: (_) => setBtnState(() => scale = 1.0),
+          onTapCancel: () => setBtnState(() => scale = 1.0),
+          onTap: onTap,
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOutCubic,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _bgColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isActive ? activeIcon : icon,
+                color: isActive ? color : _secondaryText,
+                size: 18,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// 评分按钮 - 带按压缩放动效
   Widget _buildRatingButton({
     required String label,
@@ -477,6 +640,12 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
 
   /// 评分并处理
   void _rateWord(int quality) {
+    final currentWord = ref.read(studyStateProvider).currentWord;
+    // 答错（quality=0）自动加入生词本
+    if (currentWord != null && quality == 0) {
+      ref.read(addNewWordProvider(currentWord.id!));
+    }
+
     setState(() {
       _isShowingBack = false;
     });

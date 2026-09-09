@@ -206,6 +206,22 @@ class WordRepositoryImpl implements WordRepository {
     final List<Map<String, dynamic>> reviewResult = await db.rawQuery(reviewQuery, reviewArgs);
     final int todayReview = reviewResult.first['count'] as int;
 
+    // 已背诵 reviewed（review_count > 0)
+    String reviewedQuery = '''
+    SELECT COUNT(DISTINCT s.word_id) as count
+    FROM study_records s
+    INNER JOIN words w ON s.word_id = w.id
+    WHERE s.review_count > 0 AND s.user_id = ?
+  ''';
+    List<dynamic> reviewedArgs = [userId];
+    if (category != null && category.isNotEmpty) {
+      reviewedQuery += ' AND w.category = ?';
+      reviewedArgs.add(category);
+    }
+    final List<Map<String, dynamic>> reviewedResult = await db.rawQuery(reviewedQuery, reviewedArgs);
+    final int reviewed = reviewedResult.first['count'] as int;
+
+
     // 已掌握（需要关联 words 表）
     String masteredQuery = '''
     SELECT COUNT(*) as count
@@ -237,10 +253,31 @@ class WordRepositoryImpl implements WordRepository {
     );
     final int total = totalResult.first['count'] as int;
 
+    // 今日新学单词数
+    String newTodayQuery = '''
+    SELECT COUNT(*) as count
+    FROM study_records s
+    INNER JOIN words w ON s.word_id = w.id
+    WHERE s.review_count = 1 
+      AND DATE(s.last_review_date) = DATE(?) 
+      AND s.user_id = ?
+    ''';
+    List<dynamic> newTodayArgs = [todayStr, userId];
+    if (category != null && category.isNotEmpty) {
+      newTodayQuery += ' AND w.category = ?';
+      newTodayArgs.add(category);
+    }
+    final List<Map<String, dynamic>> newTodayResult = await db.rawQuery(newTodayQuery, newTodayArgs);
+    final int newToday = newTodayResult.first['count'] as int;
+
+
+
     return {
       'todayReview': todayReview,
       'mastered': mastered,
       'total': total,
+      'newToday':newToday,
+      'reviewed': reviewed,
     };
   }
 
@@ -267,25 +304,6 @@ class WordRepositoryImpl implements WordRepository {
     return (word, record);
   }
 
-  // @override
-  // Future<List<Word>> getNewWords({
-  //   required String category,
-  //   required int count,
-  // }) async {
-  //   final db = await _dbHelper.database;
-  //   final userId = _userId;
-  //
-  //   final List<Map<String, dynamic>> maps = await db.rawQuery('''
-  //   SELECT w.*
-  //   FROM words w
-  //   LEFT JOIN study_records s ON w.id = s.word_id AND s.user_id = ?
-  //   WHERE w.category = ?
-  //     AND (s.id IS NULL OR s.review_count = 0)
-  //   LIMIT ?
-  // ''', [userId, category, count]);
-  //
-  //   return maps.map((map) => Word.fromMap(map)).toList();
-  // }
   @override
   Future<List<Word>> getNewWords({
     required String category,
@@ -306,4 +324,6 @@ class WordRepositoryImpl implements WordRepository {
 
     return maps.map((map) => Word.fromMap(map)).toList();
   }
+
+
 }

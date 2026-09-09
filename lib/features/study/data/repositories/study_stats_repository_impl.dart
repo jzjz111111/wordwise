@@ -87,12 +87,22 @@ class StudyStatsRepositoryImpl implements StudyStatsRepository {
     ''', [userId]);
     final totalWords = wordsResult.first['count'] as int? ?? 0;
 
+    //统计已掌握单词数
+    final List<Map<String, dynamic>> masteredResult = await db.rawQuery('''
+      SELECT COUNT(*) as count
+      FROM study_records
+      WHERE mastery_level >= 5 AND user_id = ?
+    ''', [userId]);
+    final totalMastered = masteredResult.first['count'] as int? ?? 0;
+
+
     final consecutiveDays = await _calculateConsecutiveDays(db, userId);
 
     return TotalStudyStats(
       totalDays: totalDays,
       totalWords: totalWords,
       consecutiveDays: consecutiveDays,
+      totalMastered: totalMastered,
     );
   }
 

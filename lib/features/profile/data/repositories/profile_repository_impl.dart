@@ -47,27 +47,63 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<String> uploadAvatar(String userId, String filePath) async {
-    final path = '$userId/avatar.jpg';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final path = '$userId/avatar_$timestamp.jpg'; // 文件名带时间戳，每次不同
     final file = File(filePath);
 
-    // 上传文件
     await _supabase.storage.from('avatars').upload(
       path,
       file,
       fileOptions: const FileOptions(
         contentType: 'image/jpeg',
-        upsert: true,
+        // upsert删掉，不再覆盖
       ),
     );
 
-    // 获取公开URL
     final publicUrl = _supabase.storage.from('avatars').getPublicUrl(path);
     return publicUrl;
   }
+  // @override
+  // Future<String> uploadAvatar(String userId, String filePath) async {
+  //   final path = '$userId/avatar.jpg';
+  //   final file = File(filePath);
+  //
+  //   // 上传文件
+  //   await _supabase.storage.from('avatars').upload(
+  //     path,
+  //     file,
+  //     fileOptions: const FileOptions(
+  //       contentType: 'image/jpeg',
+  //       upsert: true,
+  //     ),
+  //   );
+  //
+  //   // 获取公开URL
+  //   final publicUrl = _supabase.storage.from('avatars').getPublicUrl(path);
+  //   return publicUrl;
+  // }
 
+  // @override
+  // Future<String> uploadBackground(String userId, String filePath) async {
+  //   final path = '$userId/background.jpg';
+  //   final file = File(filePath);
+  //
+  //   await _supabase.storage.from('backgrounds').upload(
+  //     path,
+  //     file,
+  //     fileOptions: const FileOptions(
+  //       contentType: 'image/jpeg',
+  //       upsert: true,
+  //     ),
+  //   );
+  //
+  //   final publicUrl = _supabase.storage.from('backgrounds').getPublicUrl(path);
+  //   return publicUrl;
+  // }
   @override
   Future<String> uploadBackground(String userId, String filePath) async {
-    final path = '$userId/background.jpg';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final path = '$userId/background_$timestamp.jpg';
     final file = File(filePath);
 
     await _supabase.storage.from('backgrounds').upload(
@@ -75,7 +111,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
       file,
       fileOptions: const FileOptions(
         contentType: 'image/jpeg',
-        upsert: true,
+        // 移除 upsert: true，不再覆盖文件
       ),
     );
 

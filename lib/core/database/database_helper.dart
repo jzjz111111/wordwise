@@ -30,7 +30,7 @@ class DatabaseHelper {
     String path = join(documentsDirectory.path, 'wordwise.db');
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -80,6 +80,28 @@ class DatabaseHelper {
         FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
       )
     ''');
+
+    // 生词本表
+    await db.execute('''
+      CREATE TABLE new_words (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // 收藏本表
+    await db.execute('''
+      CREATE TABLE favorite_words (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   // 7. 升级数据库（版本变化时调用）
@@ -112,9 +134,33 @@ class DatabaseHelper {
     if (oldVersion < 5) {
       await db.execute('ALTER TABLE study_records ADD COLUMN last_review_quality INTEGER DEFAULT -1');
     }
+
     //单词表的干扰列
     if (oldVersion < 6) {
       await db.execute('ALTER TABLE words ADD COLUMN distractors TEXT');
+    }
+
+    // ✅ 版本 6→7：新增生词本、收藏本表
+    if (oldVersion < 7) {
+      await db.execute('''
+        CREATE TABLE new_words (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          word_id INTEGER NOT NULL,
+          user_id TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE favorite_words (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          word_id INTEGER NOT NULL,
+          user_id TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+        )
+      ''');
     }
 
 
