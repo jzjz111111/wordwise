@@ -6,6 +6,9 @@ import '../providers/choice_test_provider.dart';
 import '../../domain/entities/word.dart';
 import 'package:flutter/services.dart';
 
+import '../providers/study_provider.dart';
+import '../providers/study_stats_provider.dart';
+
 class ChoiceTestScreen extends ConsumerStatefulWidget {
   final List<Word> words;
   const ChoiceTestScreen({super.key, required this.words});
@@ -53,6 +56,8 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
   void _handleCompleted(List<Word> wrongWords) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      ref.invalidate(todayStatsProvider);
+      ref.invalidate(totalStudyStatsProvider);
       if (wrongWords.isNotEmpty) {
         ref.read(choiceTestProvider.notifier).loadWords(wrongWords);
       }
@@ -119,13 +124,13 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildProgressHeader(state),
-          const SizedBox(height: 32),
+          const SizedBox(height: 15),
 
           _buildWordCard(word),
-          const SizedBox(height: 28),
+          const SizedBox(height: 15),
 
           ...List.generate(4, (index) => _buildOptionButton(index, state)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 5),
 
           if (state.showResult) _buildResultArea(state, word),
         ],
@@ -179,7 +184,7 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
   Widget _buildWordCard(Word word) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(24),
@@ -196,26 +201,45 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
           Text(
             word.meaning,
             style: const TextStyle(
-              fontSize: 26,
+              fontSize: 20,
               fontWeight: FontWeight.w600,
               color: _primaryText,
               height: 1.4,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
-          if (word.phoneticUk != null)
-            Text(
-              '英  ${word.phoneticUk}',
-              style: const TextStyle(fontSize: 14, color: _secondaryText),
-            ),
-          if (word.phoneticUs != null)
-            Text(
-              '美  ${word.phoneticUs}',
-              style: const TextStyle(fontSize: 14, color: _secondaryText),
-            ),
-          const SizedBox(height: 24),
-          _buildTtsButton(word),
+          const SizedBox(height: 16),   // 单词释义与下方音标/喇叭行之间的间距
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 左侧：音标组（垂直排列）
+              if (word.phoneticUk != null || word.phoneticUs != null)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (word.phoneticUk != null)
+                      Text(
+                        '英  ${word.phoneticUk}',
+                        style: const TextStyle(fontSize: 12, color: _secondaryText),
+                      ),
+                    if (word.phoneticUs != null) ...[
+                      if (word.phoneticUk != null) const SizedBox(height: 4),  // 两个音标之间的间距
+                      Text(
+                        '美  ${word.phoneticUs}',
+                        style: const TextStyle(fontSize: 12, color: _secondaryText),
+                      ),
+                    ],
+                  ],
+                ),
+              // 音标组与喇叭之间的间距
+              if (word.phoneticUk != null || word.phoneticUs != null)
+                const SizedBox(width: 45),
+              // 右侧：喇叭按钮
+              _buildTtsButton(word),
+            ],
+          ),
         ],
       ),
     );
@@ -238,15 +262,15 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
             child: Container(
-              width: 56,
-              height: 56,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 color: _accentBg,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.volume_up_rounded,
-                size: 28,
+                size: 24,
                 color: _accentColor,
               ),
             ),
@@ -308,7 +332,7 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeOutCubic,
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                 decoration: BoxDecoration(
                   color: bgColor,
                   borderRadius: BorderRadius.circular(16),
@@ -372,14 +396,14 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
                   color: state.isCorrect ? _correctColor : _wrongColor,
                   size: 26,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     state.isCorrect
                         ? '回答正确'
                         : '正确答案：${word.word}',
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: state.isCorrect ? _correctColor : _wrongColor,
                     ),
@@ -388,7 +412,7 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           StatefulBuilder(
             builder: (context, setBtnState) {
               double scale = 1.0;
@@ -419,7 +443,7 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
                       isLast ? '查看结果' : '下一题',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.center,
@@ -497,7 +521,11 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
             // 返回首页按钮
             _buildOutlineButton(
               label: '返回首页',
-              onTap: () => Navigator.popUntil(context, (route) => route.isFirst),
+              onTap: () {
+                ref.invalidate(todayStatsProvider);
+                ref.invalidate(totalStudyStatsProvider);
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
             ),
           ],
         ),

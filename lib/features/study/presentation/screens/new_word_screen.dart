@@ -112,6 +112,7 @@ class _NewWordScreenState extends ConsumerState<NewWordScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: const Text('已移出生词本'),
+                  duration: const Duration(seconds: 2),
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

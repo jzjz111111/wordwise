@@ -44,6 +44,8 @@ class ChoiceTestState {
 
   int get totalCount => words.length;
 
+  static const _unset = Object();
+
   ChoiceTestState copyWith({
     List<Word>? words,
     int? currentIndex,
@@ -52,8 +54,8 @@ class ChoiceTestState {
     List<Word>? wrongWords,
     bool? isCompleted,
     List<String>? options,
-    int? selectedIndex,
-    int? correctIndex,
+    Object? selectedIndex = _unset,   // 注意类型改为 Object?
+    Object? correctIndex = _unset,
   }) {
     return ChoiceTestState(
       words: words ?? this.words,
@@ -63,8 +65,13 @@ class ChoiceTestState {
       wrongWords: wrongWords ?? this.wrongWords,
       isCompleted: isCompleted ?? this.isCompleted,
       options: options ?? this.options,
-      selectedIndex: selectedIndex ?? this.selectedIndex,
-      correctIndex: correctIndex ?? this.correctIndex,
+      // 如果是哨兵值，表示未传，保留旧值；否则直接转型（允许为 null）
+      selectedIndex: selectedIndex == _unset
+          ? this.selectedIndex
+          : selectedIndex as int?,
+      correctIndex: correctIndex == _unset
+          ? this.correctIndex
+          : correctIndex as int?,
     );
   }
 }
@@ -135,25 +142,6 @@ class ChoiceTestNotifier extends StateNotifier<ChoiceTestState> {
   }
 
   /// 下一个单词
-  // void nextWord() {
-  //   final nextIndex = state.currentIndex + 1;
-  //   if (nextIndex >= state.words.length) {
-  //     state = state.copyWith(
-  //       isCompleted: true,
-  //       currentIndex: nextIndex,
-  //       showResult: false,
-  //     );
-  //   } else {
-  //     state = state.copyWith(
-  //       currentIndex: nextIndex,
-  //       isCorrect: false,
-  //       showResult: false,
-  //       selectedIndex: null,
-  //       options: [],
-  //     );
-  //     _generateOptionsForCurrent();
-  //   }
-  // }
   void nextWord() {
     final nextIndex = state.currentIndex + 1;
     if (nextIndex >= state.words.length) {
@@ -161,8 +149,6 @@ class ChoiceTestNotifier extends StateNotifier<ChoiceTestState> {
         isCompleted: true,
         currentIndex: nextIndex,
         showResult: false,
-        selectedIndex: null, // ✅ 完成页也要清空选中
-        isCorrect: false,
       );
     } else {
       state = state.copyWith(
@@ -170,11 +156,12 @@ class ChoiceTestNotifier extends StateNotifier<ChoiceTestState> {
         isCorrect: false,
         showResult: false,
         selectedIndex: null,
-        // ✅ 删除 options: []，不要置空
+        options: [],
       );
       _generateOptionsForCurrent();
     }
   }
+
 
   void reset() {
     state = ChoiceTestState.initial();

@@ -53,7 +53,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         index: _selectedIndex,
         children: [
           _buildHomePage(),
-          const WrongWordScreen(),
           const StatsScreen(),
           const ProfileScreen(),
         ],
@@ -64,13 +63,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           setState(() {
             _selectedIndex = index;
           });
-          if (index == 2) {
+          if (index == 1) {
             ref.invalidate(dailyStudyStatsProvider);
             ref.invalidate(masteryDistributionProvider);
             ref.invalidate(totalStudyStatsProvider);
           }
           // 切到个人页（第4个标签，索引为3）时，自动刷新总统计数据
-          if (index == 3) {
+          if (index == 2) {
             ref.invalidate(totalStudyStatsProvider);
           }
         },
@@ -84,11 +83,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.home_outlined, color: _secondaryText, size: 24),
             selectedIcon: Icon(Icons.home_rounded, color: _accentColor, size: 24),
             label: '首页',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.error_outline, color: _secondaryText, size: 24),
-            selectedIcon: Icon(Icons.error_rounded, color: _accentColor, size: 24),
-            label: '错词本',
           ),
           NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined, color: _secondaryText, size: 24),
@@ -681,9 +675,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onTap: () {
                 switch (item['label'] as String) {
                   case '错词本':
-                    setState(() {
-                      _selectedIndex = 1;
-                    });
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WrongWordScreen()),
+                    );
                     break;
                   case '生词本':
                     Navigator.push(
@@ -701,6 +696,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: const Text('成就系统即将上线'),
+                        duration: const Duration(seconds: 2),
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/spell_test_provider.dart';
 import '../../domain/entities/word.dart';
+import '../providers/study_provider.dart';
+import '../providers/study_stats_provider.dart';
 import 'choice_test_screen.dart';
 
 class SpellTestScreen extends ConsumerStatefulWidget {
@@ -101,6 +103,8 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
   void _navigateToChoiceTest(List<Word> wrongWords, List<Word> allWords) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      ref.invalidate(todayStatsProvider);
+      ref.invalidate(totalStudyStatsProvider);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

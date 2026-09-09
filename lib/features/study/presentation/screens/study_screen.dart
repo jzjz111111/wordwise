@@ -5,6 +5,7 @@ import '../providers/favorite_word_provider.dart';
 import '../providers/new_word_provider.dart';
 import '../providers/study_provider.dart';
 import '../../domain/entities/word.dart';
+import '../providers/study_stats_provider.dart';
 import 'spell_test_screen.dart';
 import 'choice_test_screen.dart';
 import '../../../../core/services/notification_service.dart';
@@ -108,6 +109,8 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   void _navigateToSpellTest(List<Word> words) {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      ref.invalidate(todayStatsProvider);
+      ref.invalidate(totalStudyStatsProvider); // 如果需要总统计也更新
       await _updateNotification();
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -216,6 +219,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('已取消收藏'),
+                              duration: const Duration(seconds: 2),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -224,6 +228,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('已加入收藏本'),
+                              duration: const Duration(seconds: 2),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -243,6 +248,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('已移出生词本'),
+                              duration: const Duration(seconds: 2),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -251,6 +257,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('已加入生词本'),
+                              duration: const Duration(seconds: 2),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );

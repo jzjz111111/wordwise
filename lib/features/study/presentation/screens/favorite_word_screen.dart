@@ -111,6 +111,7 @@ class _FavoriteWordScreenState extends ConsumerState<FavoriteWordScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: const Text('已取消收藏'),
+                  duration: const Duration(seconds: 2),
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
