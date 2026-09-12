@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/new_word_provider.dart';
-import '../providers/word_category_provider.dart';
 import '../../domain/entities/word.dart';
 
 class NewWordScreen extends ConsumerStatefulWidget {
@@ -21,7 +20,6 @@ class _NewWordScreenState extends ConsumerState<NewWordScreen> {
   @override
   Widget build(BuildContext context) {
     final newWordAsync = ref.watch(newWordListProvider);
-    final category = ref.watch(currentCategoryProvider);
 
     return Scaffold(
       backgroundColor: _bgColor,

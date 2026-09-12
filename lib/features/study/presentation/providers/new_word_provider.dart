@@ -10,18 +10,17 @@ final newWordRepositoryProvider = Provider<NewWordRepository>((ref) {
   return NewWordRepositoryImpl();
 });
 
-/// 生词本列表：自动绑定当前用户 + 当前词库分类
+/// 生词本列表：自动绑定当前用户
 final newWordListProvider = FutureProvider<List<Word>>((ref) async {
   final userId = ref.watch(authProvider).currentUser?.id;
-  final category = ref.watch(currentCategoryProvider);
   if (userId == null) return [];
 
   final repo = ref.watch(newWordRepositoryProvider);
-  return repo.getNewWords(userId, category);
+  return repo.getNewWords(userId);
 });
 
 /// 添加单词到生词本
-final addNewWordProvider = Provider.family<void, int>((ref, wordId) {
+final addNewWordProvider = Provider.autoDispose.family<void, int>((ref, wordId) {
   final userId = ref.watch(authProvider).currentUser?.id;
   if (userId == null) return;
 
@@ -31,7 +30,7 @@ final addNewWordProvider = Provider.family<void, int>((ref, wordId) {
 });
 
 /// 从生词本移除单词
-final removeNewWordProvider = Provider.family<void, int>((ref, wordId) {
+final removeNewWordProvider = Provider.autoDispose.family<void, int>((ref, wordId) {
   final userId = ref.watch(authProvider).currentUser?.id;
   if (userId == null) return;
 

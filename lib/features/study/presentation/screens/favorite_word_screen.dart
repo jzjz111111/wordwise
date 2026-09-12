@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/favorite_word_provider.dart';
-import '../providers/word_category_provider.dart';
 import '../../domain/entities/word.dart';
 
 class FavoriteWordScreen extends ConsumerStatefulWidget {

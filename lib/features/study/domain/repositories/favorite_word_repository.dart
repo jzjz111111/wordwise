@@ -2,7 +2,7 @@ import '../entities/word.dart';
 
 abstract class FavoriteWordRepository {
   /// 获取用户指定分类下的收藏列表
-  Future<List<Word>> getFavorites(String userId, String category);
+  Future<List<Word>> getFavorites(String userId);
 
   /// 添加单词到收藏本
   Future<void> addFavorite(String userId, int wordId);

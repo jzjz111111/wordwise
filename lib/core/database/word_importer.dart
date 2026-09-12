@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 import 'distractor_generator.dart';
 
@@ -149,30 +148,4 @@ class WordImporter {
     return count;
   }
 
-  /// 导入所有词库
-  static Future<Map<String, int>> importAll() async {
-    final results = <String, int>{};
-
-    final categories = [
-      {'path': 'assets/dicts/CET4.json', 'category': 'cet4'},
-      {'path': 'assets/dicts/CET6.json', 'category': 'cet6'},
-      {'path': 'assets/dicts/KaoYan.json', 'category': 'ky'},
-    ];
-
-    for (var item in categories) {
-      try {
-        final count = await importFromAssets(
-          assetPath: item['path']!,
-          category: item['category']!,
-          clearExisting: true,
-        );
-        results[item['category']!] = count;
-        print('✅ 导入 ${item['category']} 完成: $count 个单词');
-      } catch (e) {
-        results[item['category']!] = -1;
-        print('❌ 导入 ${item['category']} 失败: $e');
-      }
-    }
-    return results;
-  }
 }

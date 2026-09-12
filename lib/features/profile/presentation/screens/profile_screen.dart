@@ -3,9 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:wordwise/features/study/presentation/providers/favorite_word_provider.dart';
+import 'package:wordwise/features/study/presentation/providers/study_provider.dart';
+import 'package:wordwise/features/study/presentation/providers/wrong_word_provider.dart';
 import 'dart:io';
+import '../../../../core/utils/snackbar_helper.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../study/domain/entities/study_stats.dart';
+import '../../../study/presentation/providers/new_word_provider.dart';
 import '../../../study/presentation/providers/study_stats_provider.dart';
 import '../../../study/presentation/providers/word_category_provider.dart';
 import '../../../study/presentation/screens/settings_screen.dart';
@@ -52,27 +57,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
   }
 
-  void _loadSignature() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      // 只读取真实签名，没有就是空字符串
-      final signature = prefs.getString(_signatureKey) ?? '';
-      setState(() {
-        _signatureController.text = signature;
-      });
-    } catch (e) {
-      _signatureController.text = '';
-    }
-  }
 
-  Future<void> _saveSignature(String signature) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_signatureKey, signature);
-    } catch (e) {
-      print('保存签名失败: $e');
-    }
-  }
 
   @override
   void dispose() {
@@ -434,8 +419,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
 
-
-
   Widget _buildStatsRow(AsyncValue<TotalStudyStats> statsAsync) {
     return statsAsync.when(
       data: (stats) => Row(
@@ -600,17 +583,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
-    final oldPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
     bool isLoading = false;
 
+    // 两个独立的错误变量，对应两个输入框
+    String? newPasswordError;
+    String? confirmPasswordError;
+
     showDialog(
       context: context,
       barrierDismissible: !isLoading,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
           return AlertDialog(
+            scrollable: true,
             backgroundColor: _cardColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -623,10 +610,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               width: 300,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // 当前邮箱
                   Row(
                     children: [
-                      const Text('当前邮箱：', style: TextStyle(fontSize: 14, color: _primaryText)),
+                      const Text(
+                        '当前邮箱：',
+                        style: TextStyle(fontSize: 14, color: _primaryText),
+                      ),
                       Expanded(
                         child: Text(
                           ref.read(authProvider).currentUser?.email ?? '未绑定',
@@ -641,72 +633,83 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: oldPasswordController,
-                    obscureText: true,
-                    enabled: !isLoading,
-                    decoration: InputDecoration(
-                      labelText: '当前密码',
-                      labelStyle: const TextStyle(color: _secondaryText),
-                      prefixIcon: const Icon(Icons.lock_outline_rounded, color: _accentColor),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentBg),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentBg),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentColor),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+
+                  // 新密码
                   TextField(
                     controller: newPasswordController,
                     obscureText: true,
                     enabled: !isLoading,
+                    style: const TextStyle(color: _primaryText, fontSize: 15),
+                    onChanged: (_) => setDialogState(() => newPasswordError = null),
                     decoration: InputDecoration(
                       labelText: '新密码',
                       labelStyle: const TextStyle(color: _secondaryText),
                       prefixIcon: const Icon(Icons.lock_outline_rounded, color: _accentColor),
+                      filled: true,
+                      fillColor: _bgColor,
+                      errorText: newPasswordError,
+                      errorStyle: const TextStyle(color: _dangerColor, fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentBg),
+                        borderSide: BorderSide.none,
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentBg),
+                        borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentColor),
+                        borderSide: const BorderSide(color: _accentColor, width: 1.5),
                       ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: _dangerColor, width: 1.5),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: _dangerColor, width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // 确认新密码
                   TextField(
                     controller: confirmPasswordController,
                     obscureText: true,
                     enabled: !isLoading,
+                    style: const TextStyle(color: _primaryText, fontSize: 15),
+                    onChanged: (_) => setDialogState(() => confirmPasswordError = null),
                     decoration: InputDecoration(
                       labelText: '确认新密码',
                       labelStyle: const TextStyle(color: _secondaryText),
                       prefixIcon: const Icon(Icons.lock_outline_rounded, color: _accentColor),
+                      filled: true,
+                      fillColor: _bgColor,
+                      errorText: confirmPasswordError,
+                      errorStyle: const TextStyle(color: _dangerColor, fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentBg),
+                        borderSide: BorderSide.none,
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentBg),
+                        borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _accentColor),
+                        borderSide: const BorderSide(color: _accentColor, width: 1.5),
                       ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: _dangerColor, width: 1.5),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: _dangerColor, width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
                   ),
                 ],
@@ -714,7 +717,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: isLoading ? null : () => Navigator.pop(context),
+                onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
                 child: const Text('取消', style: TextStyle(color: _secondaryText)),
               ),
               ElevatedButton(
@@ -729,30 +732,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onPressed: isLoading
                     ? null
                     : () async {
-                  final oldPwd = oldPasswordController.text.trim();
                   final newPwd = newPasswordController.text.trim();
                   final confirmPwd = confirmPasswordController.text.trim();
 
-                  if (oldPwd.isEmpty || newPwd.isEmpty || confirmPwd.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('请填写完整信息')),
-                    );
-                    return;
-                  }
-                  if (newPwd.length < 6) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('密码至少6位')),
-                    );
-                    return;
-                  }
-                  if (newPwd != confirmPwd) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('两次密码不一致')),
-                    );
-                    return;
-                  }
+                  // 清空上次错误
+                  setDialogState(() {
+                    newPasswordError = null;
+                    confirmPasswordError = null;
+                  });
 
-                  setState(() => isLoading = true);
+                  // 校验：分字段显示
+                  bool hasError = false;
+                  if (newPwd.isEmpty) {
+                    setDialogState(() => newPasswordError = '请输入新密码');
+                    hasError = true;
+                  } else if (newPwd.length < 6) {
+                    setDialogState(() => newPasswordError = '密码至少6位字符');
+                    hasError = true;
+                  }
+                  if (confirmPwd.isEmpty) {
+                    setDialogState(() => confirmPasswordError = '请确认新密码');
+                    hasError = true;
+                  } else if (newPwd != confirmPwd) {
+                    setDialogState(() => confirmPasswordError = '两次密码不一致');
+                    hasError = true;
+                  }
+                  if (hasError) return;
+
+                  setDialogState(() => isLoading = true);
 
                   try {
                     final supabase = Supabase.instance.client;
@@ -761,29 +768,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     );
                     await supabase.auth.refreshSession();
 
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('✅ 密码修改成功'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    Navigator.pop(context);
+                    if (!dialogContext.mounted) return;
+                    Navigator.pop(dialogContext);
+
+                    if (context.mounted) {
+                      showAppSnackBar(
+                        context,
+                        '密码修改成功',
+                        type: SnackBarType.success,
+                      );
+                    }
                   } catch (e) {
-                    setState(() => isLoading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('❌ 修改失败: $e'),
-                        backgroundColor: _dangerColor,
-                      ),
-                    );
+                    if (!dialogContext.mounted) return;
+                    setDialogState(() {
+                      isLoading = false;
+                      newPasswordError = '修改失败，请稍后重试';
+                    });
                   }
                 },
                 child: isLoading
                     ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
                     : const Text('确认修改'),
               ),
@@ -793,6 +803,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
+
 
   void _showLogoutConfirm(BuildContext context, WidgetRef ref) {
     showDialog(
@@ -829,6 +840,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ref.invalidate(dailyStudyStatsProvider);
               ref.invalidate(masteryDistributionProvider);
               ref.invalidate(totalStudyStatsProvider);
+              ref.invalidate(todayStatsProvider);
+              ref.invalidate(todayWordsProvider);
+              ref.invalidate(newWordListProvider);
+              ref.invalidate(favoriteWordListProvider);
+              ref.invalidate(wrongWordsProvider);
               if (!context.mounted) return;
               context.go('/login');
             },
@@ -841,64 +857,131 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _showEditSignatureDialog(BuildContext context) {
     final controller = TextEditingController(text: _signatureController.text);
+    String? signatureError;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: _cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          '修改签名',
-          style: TextStyle(color: _primaryText, fontWeight: FontWeight.w600),
-        ),
-        content: TextField(
-          controller: controller,
-          maxLength: 30,
-          decoration: InputDecoration(
-            hintText: '输入你的签名',
-            hintStyle: const TextStyle(color: _secondaryText),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _accentBg),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            scrollable: true,
+            backgroundColor: _cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _accentBg),
+            title: const Text(
+              '修改签名',
+              style: TextStyle(color: _primaryText, fontWeight: FontWeight.w600),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _accentColor),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消', style: TextStyle(color: _secondaryText)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _accentColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            content: SizedBox(
+              width: 300,
+              child: TextField(
+                controller: controller,
+                maxLength: 30,
+                style: const TextStyle(color: _primaryText, fontSize: 15),
+                onChanged: (_) => setDialogState(() => signatureError = null),
+                decoration: InputDecoration(
+                  hintText: '输入你的签名',
+                  hintStyle: const TextStyle(color: _secondaryText),
+                  filled: true,
+                  fillColor: _bgColor,
+                  errorText: signatureError,
+                  errorStyle: const TextStyle(color: _dangerColor, fontSize: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _accentColor, width: 1.5),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _dangerColor, width: 1.5),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _dangerColor, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                ),
               ),
             ),
-            onPressed: () {
-              setState(() {
-                _signatureController.text = controller.text.trim();
-                _saveSignature(_signatureController.text);
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('保存'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('取消', style: TextStyle(color: _secondaryText)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _accentColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  final newSignature = controller.text.trim();
+
+                  if (newSignature.isEmpty) {
+                    setDialogState(() => signatureError = '签名不能为空');
+                    return;
+                  }
+                  if (newSignature.length > 30) {
+                    setDialogState(() => signatureError = '签名不能超过30个字符');
+                    return;
+                  }
+
+                  setState(() {
+                    _signatureController.text = newSignature;
+                    _saveSignature(newSignature);
+                  });
+                  Navigator.pop(dialogContext);
+
+                  if (context.mounted) {
+                    showAppSnackBar(
+                      context,
+                      '签名已更新',
+                      type: SnackBarType.success,
+                    );
+                  }
+                },
+                child: const Text('保存'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
+
+  void _loadSignature() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // 只读取真实签名，没有就是空字符串
+      final signature = prefs.getString(_signatureKey) ?? '';
+      setState(() {
+        _signatureController.text = signature;
+      });
+    } catch (e) {
+      _signatureController.text = '';
+    }
+  }
+
+  Future<void> _saveSignature(String signature) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_signatureKey, signature);
+    } catch (e) {
+      print('保存签名失败: $e');
+    }
+  }
+
 
   String _getCategoryName(String category) {
     switch (category) {
@@ -961,78 +1044,212 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  // void _showEditUsernameDialog(
+  //     BuildContext context,
+  //     WidgetRef ref,
+  //     String userId,
+  //     ) {
+  //   final controller = TextEditingController();
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       backgroundColor: _cardColor,
+  //       shape: RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.circular(20),
+  //       ),
+  //       title: const Text(
+  //         '修改昵称',
+  //         style: TextStyle(color: _primaryText, fontWeight: FontWeight.w600),
+  //       ),
+  //       content: TextField(
+  //         controller: controller,
+  //         decoration: InputDecoration(
+  //           hintText: '请输入新昵称',
+  //           hintStyle: const TextStyle(color: _secondaryText),
+  //           border: OutlineInputBorder(
+  //             borderRadius: BorderRadius.circular(12),
+  //             borderSide: const BorderSide(color: _accentBg),
+  //           ),
+  //           enabledBorder: OutlineInputBorder(
+  //             borderRadius: BorderRadius.circular(12),
+  //             borderSide: const BorderSide(color: _accentBg),
+  //           ),
+  //           focusedBorder: OutlineInputBorder(
+  //             borderRadius: BorderRadius.circular(12),
+  //             borderSide: const BorderSide(color: _accentColor),
+  //           ),
+  //         ),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('取消', style: TextStyle(color: _secondaryText)),
+  //         ),
+  //         ElevatedButton(
+  //           style: ElevatedButton.styleFrom(
+  //             backgroundColor: _accentColor,
+  //             foregroundColor: Colors.white,
+  //             elevation: 0,
+  //             shape: RoundedRectangleBorder(
+  //               borderRadius: BorderRadius.circular(12),
+  //             ),
+  //           ),
+  //           onPressed: () async {
+  //             final newUsername = controller.text.trim();
+  //             if (newUsername.isEmpty) {
+  //               ScaffoldMessenger.of(context).showSnackBar(
+  //                 const SnackBar(content: Text('昵称不能为空')),
+  //               );
+  //               return;
+  //             }
+  //             final repository = ref.read(profileRepositoryProvider);
+  //             await repository.updateUsername(userId, newUsername);
+  //
+  //             ref.invalidate(profileProvider(userId));
+  //
+  //             Navigator.pop(context);
+  //             if (!context.mounted) return;
+  //             ScaffoldMessenger.of(context).showSnackBar(
+  //               const SnackBar(content: Text('昵称已更新')),
+  //             );
+  //           },
+  //           child: const Text('保存'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   void _showEditUsernameDialog(
       BuildContext context,
       WidgetRef ref,
       String userId,
       ) {
     final controller = TextEditingController();
+    String? usernameError;
+    bool isLoading = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: _cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          '修改昵称',
-          style: TextStyle(color: _primaryText, fontWeight: FontWeight.w600),
-        ),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: '请输入新昵称',
-            hintStyle: const TextStyle(color: _secondaryText),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _accentBg),
+      barrierDismissible: !isLoading,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            scrollable: true,
+            backgroundColor: _cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _accentBg),
+            title: const Text(
+              '修改昵称',
+              style: TextStyle(color: _primaryText, fontWeight: FontWeight.w600),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _accentColor),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消', style: TextStyle(color: _secondaryText)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _accentColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            content: SizedBox(
+              width: 300,
+              child: TextField(
+                controller: controller,
+                enabled: !isLoading,
+                maxLength: 20,
+                style: const TextStyle(color: _primaryText, fontSize: 15),
+                onChanged: (_) => setDialogState(() => usernameError = null),
+                decoration: InputDecoration(
+                  hintText: '请输入新昵称',
+                  hintStyle: const TextStyle(color: _secondaryText),
+                  filled: true,
+                  fillColor: _bgColor,
+                  errorText: usernameError,
+                  errorStyle: const TextStyle(color: _dangerColor, fontSize: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _accentColor, width: 1.5),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _dangerColor, width: 1.5),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _dangerColor, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                ),
               ),
             ),
-            onPressed: () async {
-              final newUsername = controller.text.trim();
-              if (newUsername.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('昵称不能为空')),
-                );
-                return;
-              }
-              final repository = ref.read(profileRepositoryProvider);
-              await repository.updateUsername(userId, newUsername);
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                child: const Text('取消', style: TextStyle(color: _secondaryText)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _accentColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                  final newUsername = controller.text.trim();
 
-              ref.invalidate(profileProvider(userId));
+                  if (newUsername.isEmpty) {
+                    setDialogState(() => usernameError = '昵称不能为空');
+                    return;
+                  }
+                  if (newUsername.length > 20) {
+                    setDialogState(() => usernameError = '昵称不能超过20个字符');
+                    return;
+                  }
 
-              Navigator.pop(context);
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ 昵称已更新')),
-              );
-            },
-            child: const Text('保存'),
-          ),
-        ],
+                  setDialogState(() => isLoading = true);
+
+                  try {
+                    final repository = ref.read(profileRepositoryProvider);
+                    await repository.updateUsername(userId, newUsername);
+
+                    ref.invalidate(profileProvider(userId));
+
+                    if (!dialogContext.mounted) return;
+                    Navigator.pop(dialogContext);
+
+                    if (context.mounted) {
+                      showAppSnackBar(
+                        context,
+                        '昵称已更新',
+                        type: SnackBarType.success,
+                      );
+                    }
+                  } catch (e) {
+                    if (!dialogContext.mounted) return;
+                    setDialogState(() {
+                      isLoading = false;
+                      usernameError = '修改失败，请稍后重试';
+                    });
+                  }
+                },
+                child: isLoading
+                    ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                    : const Text('保存'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

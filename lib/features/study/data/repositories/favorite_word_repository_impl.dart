@@ -10,14 +10,14 @@ class FavoriteWordRepositoryImpl implements FavoriteWordRepository {
   final FavoriteWordRemoteDatasource _remote = FavoriteWordRemoteDatasource();
 
   @override
-  Future<List<Word>> getFavorites(String userId, String category) async {
+  Future<List<Word>> getFavorites(String userId) async {
     final db = await _dbHelper.database;
     final res = await db.rawQuery('''
       SELECT w.* FROM favorite_words f
       INNER JOIN words w ON f.word_id = w.id
-      WHERE f.user_id = ? AND w.category = ?
+      WHERE f.user_id = ? 
       ORDER BY f.created_at DESC
-    ''', [userId, category]);
+    ''', [userId]);
     return res.map((e) => Word.fromMap(e)).toList();
   }
 

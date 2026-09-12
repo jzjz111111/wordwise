@@ -270,60 +270,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
             ],
           ),
         ),
-        // // 3D翻转单词卡片
-        // Expanded(
-        //   child: GestureDetector(
-        //     onTap: () {
-        //       setState(() {
-        //         _isShowingBack = !_isShowingBack;
-        //       });
-        //     },
-        //     child: TweenAnimationBuilder<double>(
-        //       tween: Tween<double>(begin: 0, end: _isShowingBack ? pi : 0),
-        //       duration: const Duration(milliseconds: 300),
-        //       curve: Curves.easeOutCubic,
-        //       builder: (context, value, child) {
-        //         // 添加透视效果，增强3D立体感
-        //         final transform = Matrix4.identity()
-        //           ..setEntry(3, 2, 0.001)
-        //           ..rotateY(value);
-        //
-        //         // 翻转超过90°时切换正反面，避免穿帮
-        //         final showBack = value > pi / 2;
-        //
-        //         return Transform(
-        //           transform: transform,
-        //           alignment: Alignment.center,
-        //           child: Container(
-        //             width: double.infinity,
-        //             padding: const EdgeInsets.all(32),
-        //             decoration: BoxDecoration(
-        //               color: _cardColor,
-        //               borderRadius: BorderRadius.circular(24),
-        //               boxShadow: [
-        //                 BoxShadow(
-        //                   color: Colors.black.withOpacity(0.04),
-        //                   blurRadius: 20,
-        //                   offset: const Offset(0, 8),
-        //                 ),
-        //               ],
-        //             ),
-        //             child: Center(
-        //               child: showBack
-        //               // 背面预先翻转180°，卡片整体转到位后文字刚好正向
-        //                   ? Transform(
-        //                 transform: Matrix4.identity()..rotateY(pi),
-        //                 alignment: Alignment.center,
-        //                 child: _buildCardBack(word),
-        //               )
-        //                   : _buildCardFront(word),
-        //             ),
-        //           ),
-        //         );
-        //       },
-        //     ),
-        //   ),
-        // ),
+
         const SizedBox(height: 24),
 
         // 评分按钮组

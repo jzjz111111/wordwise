@@ -10,14 +10,14 @@ class NewWordRepositoryImpl implements NewWordRepository {
   final NewWordRemoteDatasource _remote = NewWordRemoteDatasource();
 
   @override
-  Future<List<Word>> getNewWords(String userId, String category) async {
+  Future<List<Word>> getNewWords(String userId) async {
     final db = await _dbHelper.database;
     final res = await db.rawQuery('''
       SELECT w.* FROM new_words n
       INNER JOIN words w ON n.word_id = w.id
-      WHERE n.user_id = ? AND w.category = ?
+      WHERE n.user_id = ?
       ORDER BY n.created_at DESC
-    ''', [userId, category]);
+    ''', [userId]);
     return res.map((e) => Word.fromMap(e)).toList();
   }
 

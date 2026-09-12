@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/database/word_importer.dart';
 import '../../../study/presentation/providers/favorite_word_provider.dart';
@@ -23,6 +24,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
   bool _isLoginMode = true;
 
+  String? _emailError;
+  String? _passwordError;
+  // 邮箱正则
+  static final RegExp _emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+
   // 与单词详情统一的 INS 极简配色
   static const Color _bgColor = Color(0xFFF7F8FA);
   static const Color _cardColor = Colors.white;
@@ -31,9 +37,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   static const Color _accentColor = Color(0xFF8A9EDB);
   static const Color _accentBg = Color(0xFFF0F3FC);
   static const Color _warningColor = Color(0xFFFF8A75);
-  static const Color _successColor = Color(0xFF66BB6A);
+
+
+  bool _validateForm() {
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+    });
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty) {
+      setState(() => _emailError = '请输入邮箱');
+      return false;
+    }
+    if (!_emailRegex.hasMatch(email)) {
+      setState(() => _emailError = '邮箱格式不正确');
+      return false;
+    }
+
+    if (password.isEmpty) {
+      setState(() => _passwordError = '请输入密码');
+      return false;
+    }
+    if (password.length < 6) {
+      setState(() => _passwordError = '密码至少6位字符');
+      return false;
+    }
+    return true;
+  }
 
   Future<void> _submit() async {
+    if (!_validateForm()) return;
     setState(() => _isLoading = true);
 
     try {
@@ -48,6 +83,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           await syncService.downloadNewWordsFromCloud();
           await syncService.downloadFavoritesFromCloud();
 
+          ref.invalidate(todayStatsProvider);
+          ref.invalidate(todayWordsProvider);
           ref.invalidate(dailyStudyStatsProvider);
           ref.invalidate(masteryDistributionProvider);
           ref.invalidate(totalStudyStatsProvider);
@@ -69,15 +106,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
         }
       }
-    } catch (e) {
+    } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('错误: $e')),
-        );
+        setState(() {
+          if (e.message == 'User already registered') {
+            _emailError = '该邮箱已被注册';
+          } else if (e.message == 'Invalid login credentials') {
+            _passwordError = '邮箱或密码不正确';
+          } else if (e.message == 'Password should be at least 6 characters') {
+            _passwordError = '密码至少6位字符';
+          } else if (e.message == 'invalid email') {
+            _emailError = '邮箱格式不正确';
+          } else {
+            // 其它认证错误用snackbar
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+          }
+        });
+      }
+    } catch (e) {
+      // 网络等非Auth异常，保留snackbar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('请求失败：$e')));
       }
     }
 
     setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -125,7 +185,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  // 顶部 Logo 区域（可替换为你的品牌图片）
+  // 顶部 Logo 区域
   Widget _buildLogo() {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.8, end: 1.0),
@@ -216,7 +276,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _isLoginMode = true),
+              onTap: () => setState(() {
+                _isLoginMode = true;
+                // 切换模式清空错误提示
+                _emailError = null;
+                _passwordError = null;
+              }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
@@ -246,7 +311,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _isLoginMode = false),
+              onTap: () => setState(() {
+                _isLoginMode = false;
+                // 切换模式清空错误提示
+                _emailError = null;
+                _passwordError = null;
+              }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
@@ -285,12 +355,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
       style: const TextStyle(color: _primaryText, fontSize: 15),
+      onChanged: (_) => setState(() => _emailError = null),
       decoration: InputDecoration(
         labelText: '邮箱',
         labelStyle: const TextStyle(color: _secondaryText),
         prefixIcon: const Icon(Icons.email_outlined, color: _accentColor),
         filled: true,
         fillColor: _bgColor,
+        errorText: _emailError,
+        errorStyle: TextStyle(color: _warningColor, fontSize: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -302,6 +375,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: _accentColor, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _warningColor, width:1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _warningColor, width:1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
@@ -314,12 +395,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       controller: _passwordController,
       obscureText: true,
       style: const TextStyle(color: _primaryText, fontSize: 15),
+      onChanged: (_) => setState(() => _passwordError = null),
       decoration: InputDecoration(
         labelText: '密码',
         labelStyle: const TextStyle(color: _secondaryText),
         prefixIcon: const Icon(Icons.lock_outline, color: _accentColor),
         filled: true,
         fillColor: _bgColor,
+        errorText: _passwordError,
+        errorStyle: TextStyle(color: _warningColor, fontSize: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -331,6 +415,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: _accentColor, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _warningColor, width:1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _warningColor, width:1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),

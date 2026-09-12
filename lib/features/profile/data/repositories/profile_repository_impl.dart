@@ -63,43 +63,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
     final publicUrl = _supabase.storage.from('avatars').getPublicUrl(path);
     return publicUrl;
   }
-  // @override
-  // Future<String> uploadAvatar(String userId, String filePath) async {
-  //   final path = '$userId/avatar.jpg';
-  //   final file = File(filePath);
-  //
-  //   // 上传文件
-  //   await _supabase.storage.from('avatars').upload(
-  //     path,
-  //     file,
-  //     fileOptions: const FileOptions(
-  //       contentType: 'image/jpeg',
-  //       upsert: true,
-  //     ),
-  //   );
-  //
-  //   // 获取公开URL
-  //   final publicUrl = _supabase.storage.from('avatars').getPublicUrl(path);
-  //   return publicUrl;
-  // }
 
-  // @override
-  // Future<String> uploadBackground(String userId, String filePath) async {
-  //   final path = '$userId/background.jpg';
-  //   final file = File(filePath);
-  //
-  //   await _supabase.storage.from('backgrounds').upload(
-  //     path,
-  //     file,
-  //     fileOptions: const FileOptions(
-  //       contentType: 'image/jpeg',
-  //       upsert: true,
-  //     ),
-  //   );
-  //
-  //   final publicUrl = _supabase.storage.from('backgrounds').getPublicUrl(path);
-  //   return publicUrl;
-  // }
   @override
   Future<String> uploadBackground(String userId, String filePath) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch;

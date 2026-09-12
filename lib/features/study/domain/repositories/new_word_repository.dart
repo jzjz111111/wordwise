@@ -2,7 +2,7 @@ import '../entities/word.dart';
 
 abstract class NewWordRepository {
   /// 获取用户指定分类下的生词列表
-  Future<List<Word>> getNewWords(String userId, String category);
+  Future<List<Word>> getNewWords(String userId);
 
   /// 添加单词到生词本
   Future<void> addNewWord(String userId, int wordId);

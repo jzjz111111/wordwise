@@ -23,10 +23,6 @@ class AuthNotifier {
       email: email,
       password: password,
     );
-
-
-    print('📌 signUp 响应: user=${response.user}, session=${response.session}');
-
     if (response.user != null) {
       try {
         await _supabase.from('profiles').insert({
@@ -34,14 +30,12 @@ class AuthNotifier {
           'username': email.split('@').first,
           'avatar_url': null,
         });
-        print('✅ profiles 创建成功');
       } catch (e) {
         print('❌ 创建 profiles 失败: $e');
       }
     } else {
       print('⚠️ response.user 为 null，无法创建 profiles');
     }
-
     return response;
   }
 

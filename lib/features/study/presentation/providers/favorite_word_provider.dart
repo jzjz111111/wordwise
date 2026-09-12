@@ -13,11 +13,10 @@ final favoriteWordRepositoryProvider = Provider<FavoriteWordRepository>((ref) {
 /// 收藏本列表：自动绑定当前用户 + 当前词库分类
 final favoriteWordListProvider = FutureProvider<List<Word>>((ref) async {
   final userId = ref.watch(authProvider).currentUser?.id;
-  final category = ref.watch(currentCategoryProvider);
   if (userId == null) return [];
 
   final repo = ref.watch(favoriteWordRepositoryProvider);
-  return repo.getFavorites(userId, category);
+  return repo.getFavorites(userId);
 });
 
 /// 添加单词到收藏本
