@@ -110,6 +110,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       ref.invalidate(todayStatsProvider);
+      ref.invalidate(todayWordsProvider);
       ref.invalidate(totalStudyStatsProvider); // 如果需要总统计也更新
       await _updateNotification();
       if (!mounted) return;

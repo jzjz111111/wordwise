@@ -153,6 +153,9 @@ class StudyNotifier extends StateNotifier<StudyState> {
         wordId: wordId,
         quality: quality,
       );
+      // 本地写入完成，主动让首页数据失效
+      ref.invalidate(todayWordsProvider);
+      ref.invalidate(todayStatsProvider);
     } catch (e) {
       // 写入失败静默处理，不打断用户学习流程
       debugPrint('单词学习结果写入失败: $e');

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../domain/entities/word.dart';
@@ -16,13 +17,14 @@ class WordRepositoryImpl implements WordRepository {
 
   @override
   Future<List<Word>> getTodayReviewWords({String? category}) async {
+    debugPrint('🔍 getTodayReviewWords 被调用，category=$category');
     final db = await _dbHelper.database;
     final userId = _userId;
     // 获取今天的日期（不含时间）
     final today = DateTime.now();
     final todayStr = DateTime(today.year, today.month, today.day)
         .toIso8601String();
-
+    debugPrint('🔍 [查询参数] userId=$userId, category=$category, todayStr=$todayStr');
     // 构建查询条件
     String whereClause = 'DATE(s.next_review_date) <= DATE(?) AND s.user_id = ?';
     List<dynamic> args = [todayStr,userId];
@@ -35,13 +37,14 @@ class WordRepositoryImpl implements WordRepository {
     // 查询今天需要复习的单词
     // 关联 words 和 study_records 表
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
-      SELECT w.*, s.*
+      SELECT w.*
       FROM words w
       INNER JOIN study_records s ON w.id = s.word_id
       WHERE $whereClause
       ORDER BY s.next_review_date ASC
     ''', args);
 
+    debugPrint('🔍 [查询结果] 返回 ${maps.length} 条');
     // 把查询结果转换成 Word 对象列表
     return maps.map((map) => Word.fromMap(map)).toList();
   }
@@ -183,13 +186,6 @@ class WordRepositoryImpl implements WordRepository {
     final todayStr = DateTime(today.year, today.month, today.day)
         .toIso8601String();
 
-    // 构建词库过滤条件
-    String categoryFilter = '';
-    List<dynamic> args = [];
-    if (category != null && category.isNotEmpty) {
-      categoryFilter = 'WHERE w.category = ?';
-      args.add(category);
-    }
 
     // 今日待复习（需要关联 words 表以支持词库过滤）
     String reviewQuery = '''

@@ -101,8 +101,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ====================== 主页主体 ======================
   Widget _buildHomePage() {
-    final statsAsync = ref.watch(todayStatsProvider);
-    final wordsAsync = ref.watch(todayWordsProvider);
+    final statsAsync = ref.watch(todayStatsProvider);//主页卡片五个状态
+    final wordsAsync = ref.watch(todayWordsProvider);//复习的单词
     final category = ref.watch(currentCategoryProvider);
     final totalStatsAsync = ref.watch(totalStudyStatsProvider);
 
@@ -147,51 +147,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-  // Widget _buildHomePage() {
-  //   final statsAsync = ref.watch(todayStatsProvider);
-  //   final wordsAsync = ref.watch(todayWordsProvider);
-  //   final category = ref.watch(currentCategoryProvider);
-  //   final totalStatsAsync = ref.watch(totalStudyStatsProvider);
-  //
-  //   return SingleChildScrollView(
-  //     padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         // 1. 顶部问候栏（使用真实连续天数）
-  //         _buildTopHeader(totalStatsAsync),
-  //         const SizedBox(height: 10),
-  //
-  //         //每日例句
-  //         _buildDailySentenceCard(),
-  //         const SizedBox(height: 10),
-  //
-  //         // 2. 词库切换胶囊
-  //         _buildCategoryChip(category),
-  //         const SizedBox(height: 24),
-  //
-  //         // 3. 核心进度大卡片
-  //         statsAsync.when(
-  //           data: (stats) => _buildMainProgressCard(stats),
-  //           loading: () => _buildLoadingCard(height: 280),
-  //           error: (err, stack) => _buildErrorCard('加载失败: $err'),
-  //         ),
-  //         const SizedBox(height: 20),
-  //
-  //         // 4. 数据概览卡片组
-  //         _buildStatsOverview(wordsAsync, statsAsync),
-  //         const SizedBox(height: 28),
-  //
-  //         // 5. 主操作按钮区
-  //         _buildMainActionButtons(wordsAsync),
-  //         const SizedBox(height: 32),
-  //
-  //         // 6. 快捷功能入口
-  //         _buildQuickActions(),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   // ========== 1. 顶部标题栏：接入真实连续天数数据源 ==========
   Widget _buildTopHeader(AsyncValue<TotalStudyStats> totalStatsAsync) {
@@ -434,7 +389,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: '待复习',
             color: _basicColor,
             asyncValue: wordsAsync,
-            valueBuilder: (data) => '${data.length}',
+            valueBuilder: (data) {
+              debugPrint('🏠 [首页] 待复习卡片渲染, 数量=${data.length}');
+              return '${data.length}';
+            },
           ),
         ),
         const SizedBox(width: 12),

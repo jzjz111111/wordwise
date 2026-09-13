@@ -92,7 +92,12 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            ref.invalidate(todayStatsProvider);
+            ref.invalidate(todayWordsProvider);
+            ref.invalidate(totalStudyStatsProvider);
+            Navigator.pop(context);
+          },
         ),
       ),
       body: SafeArea(
@@ -523,6 +528,7 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
               label: '返回首页',
               onTap: () {
                 ref.invalidate(todayStatsProvider);
+                ref.invalidate(todayWordsProvider);
                 ref.invalidate(totalStudyStatsProvider);
                 Navigator.popUntil(context, (route) => route.isFirst);
               },
