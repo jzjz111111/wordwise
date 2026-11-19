@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/favorite_word_provider.dart';
 import '../../domain/entities/word.dart';
+import '../widgets/word_toggle_button.dart';
+import '../../../../core/services/tts_service.dart';
 
 class FavoriteWordScreen extends ConsumerStatefulWidget {
   const FavoriteWordScreen({super.key});
@@ -103,20 +105,33 @@ class _FavoriteWordScreenState extends ConsumerState<FavoriteWordScreen> {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.star, color: Color(0xFFFFB74D)),
-            onPressed: () {
-              ref.read(removeFavoriteProvider(word.id!));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('已取消收藏'),
-                  duration: const Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              );
-            },
+          // 🔊 发音按钮
+          GestureDetector(
+            onTap: () => TtsService.instance.speak(word.word),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _accentColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.volume_up_outlined,
+                color: _accentColor,
+                size: 18,
+              ),
+            ),
           ),
+          const SizedBox(width: 8),
+          FavoriteToggleButton(
+            wordId: word.id!,
+            bgColor: _cardColor,
+            secondaryTextColor: _secondaryText,
+            afterToggle: () {
+              // 取消收藏之后，让收藏列表provider失效刷新页面列表
+              ref.invalidate(favoriteWordListProvider);
+            },
+          )
         ],
       ),
     );

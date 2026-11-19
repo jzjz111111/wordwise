@@ -32,6 +32,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- 禁用 Impeller，回退到 Skia 渲染。
+             该设备上 Vulkan 后端会持续调度帧，导致 ViewRootImpl(VRI) 日志死循环、耗电发热。
+             若出现黑屏，先注释下方三行恢复 Impeller 验证是否为 Skia 兼容性问题 -->
+        <!--
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+        -->
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -42,6 +50,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Android 11+ 包可见性限制：不声明则应用看不到任何 TTS 引擎，
+             TextToSpeech 初始化会返回 status: -1 -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
         </intent>
     </queries>
 </manifest>

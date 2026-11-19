@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/new_word_provider.dart';
 import '../../domain/entities/word.dart';
+import '../widgets/word_toggle_button.dart';
+import '../../../../core/services/tts_service.dart';
 
 class NewWordScreen extends ConsumerStatefulWidget {
   const NewWordScreen({super.key});
@@ -103,22 +105,52 @@ class _NewWordScreenState extends ConsumerState<NewWordScreen> {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFFF8A75)),
-            onPressed: () {
-              ref.read(removeNewWordProvider(word.id!));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('已移出生词本'),
-                  duration: const Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              );
+          // 🔊 发音按钮
+          _buildSpeakButton(word.word),
+          const SizedBox(width: 8),
+          NewWordToggleButton(
+            wordId: word.id!,
+            bgColor: _cardColor,
+            secondaryTextColor: _secondaryText,
+            afterToggle: () {
+              ref.invalidate(newWordListProvider);
             },
-          ),
+          )
         ],
       ),
+    );
+  }
+
+  /// 列表项发音小按钮
+  Widget _buildSpeakButton(String wordText) {
+    return StatefulBuilder(
+      builder: (context, setBtnState) {
+        double scale = 1.0;
+        return GestureDetector(
+          onTapDown: (_) => setBtnState(() => scale = 0.88),
+          onTapUp: (_) => setBtnState(() => scale = 1.0),
+          onTapCancel: () => setBtnState(() => scale = 1.0),
+          onTap: () => TtsService.instance.speak(wordText),
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOutCubic,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _accentColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.volume_up_outlined,
+                color: _accentColor,
+                size: 18,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import '../../../../core/services/tts_service.dart';
 import '../providers/spell_test_provider.dart';
 import '../../domain/entities/word.dart';
 import '../providers/study_provider.dart';
@@ -17,12 +17,8 @@ class SpellTestScreen extends ConsumerStatefulWidget {
 }
 
 class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
-  final FlutterTts _tts = FlutterTts();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-
-  bool _ttsInitialized = false;          // 标记是否初始化完成
-  Future<void>? _ttsInitFuture;          // 保存初始化 Future
 
   // ====================== 全局配色 ======================
   static const Color _bgColor = Color(0xFFF7F8FA);
@@ -37,7 +33,6 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
   @override
   void initState() {
     super.initState();
-    _ttsInitFuture = _initTts();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(spellTestProvider.notifier).loadWords(widget.words);
     });
@@ -45,7 +40,7 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
 
   @override
   void dispose() {
-    _tts.stop();
+    TtsService.instance.stop();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -224,18 +219,55 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
           ),
           const SizedBox(height: 20),
           if (word.phoneticUk != null)
-            Text(
-              '英  ${word.phoneticUk}',
-              style: const TextStyle(fontSize: 14, color: _secondaryText),
+            _buildPhoneticTap(
+              label: '英',
+              phonetic: word.phoneticUk!,
+              wordText: word.word,
+              british: true,
+              fontSize: 14,
             ),
           if (word.phoneticUs != null)
-            Text(
-              '美  ${word.phoneticUs}',
-              style: const TextStyle(fontSize: 14, color: _secondaryText),
+            _buildPhoneticTap(
+              label: '美',
+              phonetic: word.phoneticUs!,
+              wordText: word.word,
+              british: false,
+              fontSize: 14,
             ),
           const SizedBox(height: 24),
           _buildTtsButton(word),
         ],
+      ),
+    );
+  }
+
+  /// 可点击音标：点击后按对应口音朗读
+  Widget _buildPhoneticTap({
+    required String label,
+    required String phonetic,
+    required String wordText,
+    required bool british,
+    required double fontSize,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () async {
+          final ok = await TtsService.instance.speak(wordText, british: british);
+          if (!ok && british && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('当前语音引擎未安装英式发音，已用美式代替')),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Text(
+            '$label  $phonetic',
+            style: TextStyle(fontSize: fontSize, color: _accentColor, height: 1.5),
+          ),
+        ),
       ),
     );
   }
@@ -248,32 +280,8 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
           onTapDown: (_) => setBtnState(() => scale = 0.93),
           onTapUp: (_) => setBtnState(() => scale = 1.0),
           onTapCancel: () => setBtnState(() => scale = 1.0),
-          // 在 _buildTtsButton 的 onTap 中
           onTap: () async {
-            debugPrint('播放按钮被点击，单词: ${word.word}');
-            try {
-              if (_ttsInitFuture != null && !_ttsInitialized) {
-                await _ttsInitFuture;   // 等待初始化完成
-              }
-              if (!_ttsInitialized) {
-                // 初始化失败，提示用户
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('语音引擎未就绪，请检查系统 TTS 设置')),
-                  );
-                }
-                return;
-              }
-              await _tts.stop();        // 停止之前的播放
-              await _tts.speak(word.word);
-            } catch (e) {
-              debugPrint('TTS 播放失败: $e');
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('语音播放失败，请稍后重试')),
-                );
-              }
-            }
+            await TtsService.instance.speak(word.word);
           },
           child: AnimatedScale(
             scale: scale,
@@ -552,35 +560,5 @@ class _SpellTestScreenState extends ConsumerState<SpellTestScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _initTts() async {
-    print('🔄 开始初始化 TTS...');
-    try {
-      final isEnUSAvailable = await _tts.isLanguageAvailable('en-US');
-      if (isEnUSAvailable) {
-        await _tts.setLanguage('en-US');
-      } else {
-        final isEnGBAvailable = await _tts.isLanguageAvailable('en-GB');
-        if (isEnGBAvailable) {
-          await _tts.setLanguage('en-GB');
-        } else {
-          debugPrint('⚠️ 设备未安装英语语音包，使用默认语言播放');
-        }
-      }
-
-      await _tts.setSpeechRate(0.5);
-      await _tts.setVolume(1.0);
-      await _tts.setPitch(1.0);
-      await _tts.awaitSpeakCompletion(true);
-      _ttsInitialized = true;
-
-      // 修改：用 getLanguages 查看已安装语言（可选）
-      final languages = await _tts.getLanguages;
-      debugPrint('✅ TTS 初始化完成，可用语言: $languages');
-    } catch (e) {
-      debugPrint('❌ TTS 初始化失败: $e');
-      _ttsInitialized = false;
-    }
   }
 }

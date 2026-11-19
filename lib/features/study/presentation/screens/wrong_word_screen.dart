@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/wrong_word_provider.dart';
 import 'word_detail_screen.dart';
+import '../../../../core/services/tts_service.dart';
 
 class WrongWordScreen extends ConsumerStatefulWidget {
   const WrongWordScreen({super.key});
@@ -178,7 +179,24 @@ class _WrongWordScreenState extends ConsumerState<WrongWordScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            // 🔊 发音按钮
+            GestureDetector(
+              onTap: () => TtsService.instance.speak(word.word),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: _accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.volume_up_outlined,
+                  color: _accentColor,
+                  size: 18,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
             // 删除按钮
             GestureDetector(
               onTap: () {

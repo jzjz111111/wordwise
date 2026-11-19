@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import '../../../../core/services/tts_service.dart';
 import '../providers/word_detail_provider.dart';
 import '../providers/wrong_word_provider.dart';
 import '../providers/study_provider.dart';
@@ -51,8 +51,7 @@ class WordDetailScreen extends ConsumerWidget {
             color: _primaryText,
             onPressed: () {
               detailAsync.whenData((detail) {
-                final tts = FlutterTts();
-                tts.speak(detail.$1.word);
+                TtsService.instance.speak(detail.$1.word);
               });
             },
           ),
@@ -190,22 +189,20 @@ class WordDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 if (word.phoneticUk != null || word.phoneticUs != null) ...[
                   if (word.phoneticUk != null)
-                    Text(
-                      '英  ${word.phoneticUk}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: _secondaryText,
-                        height: 1.5,
-                      ),
+                    _buildPhoneticTap(
+                      label: '英',
+                      phonetic: word.phoneticUk!,
+                      wordText: word.word,
+                      british: true,
+                      fontSize: 14,
                     ),
                   if (word.phoneticUs != null)
-                    Text(
-                      '美  ${word.phoneticUs}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: _secondaryText,
-                        height: 1.5,
-                      ),
+                    _buildPhoneticTap(
+                      label: '美',
+                      phonetic: word.phoneticUs!,
+                      wordText: word.word,
+                      british: false,
+                      fontSize: 14,
                     ),
                 ],
               ],
@@ -218,6 +215,39 @@ class WordDetailScreen extends ConsumerWidget {
   }
 
   // 发音按钮 - 带按压缩放动效
+  /// 可点击音标：点击后按对应口音朗读
+  Widget _buildPhoneticTap({
+    required String label,
+    required String phonetic,
+    required String wordText,
+    required bool british,
+    required double fontSize,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: Builder(
+        builder: (context) => InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () async {
+            final ok = await TtsService.instance.speak(wordText, british: british);
+            if (!ok && british && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('当前语音引擎未安装英式发音，已用美式代替')),
+              );
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            child: Text(
+              '$label  $phonetic',
+              style: TextStyle(fontSize: fontSize, color: _accentColor, height: 1.5),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSoundButton(String wordText) {
     return StatefulBuilder(
       builder: (context, setBtnState) {
@@ -227,8 +257,7 @@ class WordDetailScreen extends ConsumerWidget {
           onTapUp: (_) => setBtnState(() => scale = 1.0),
           onTapCancel: () => setBtnState(() => scale = 1.0),
           onTap: () {
-            final tts = FlutterTts();
-            tts.speak(wordText);
+            TtsService.instance.speak(wordText);
           },
           child: AnimatedScale(
             scale: scale,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import '../../../../core/services/tts_service.dart';
 import '../../../../core/services/ai_service.dart';
 import '../providers/choice_test_provider.dart';
 import '../../domain/entities/word.dart';
@@ -18,8 +18,6 @@ class ChoiceTestScreen extends ConsumerStatefulWidget {
 }
 
 class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
-  final FlutterTts _tts = FlutterTts();
-
   // ====================== 全局配色 ======================
   static const Color _bgColor = Color(0xFFF7F8FA);
   static const Color _cardColor = Colors.white;
@@ -33,7 +31,6 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
   @override
   void initState() {
     super.initState();
-    _initTtsConfig();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(choiceTestProvider.notifier).loadWords(widget.words);
@@ -42,15 +39,8 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
 
   @override
   void dispose() {
-    _tts.stop();
+    TtsService.instance.stop();
     super.dispose();
-  }
-
-  Future<void> _initTtsConfig() async {
-    await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(0.5);
-    await _tts.setVolume(1.0);
-    await _tts.setPitch(1.0);
   }
 
   void _handleCompleted(List<Word> wrongWords) {
@@ -225,15 +215,21 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (word.phoneticUk != null)
-                      Text(
-                        '英  ${word.phoneticUk}',
-                        style: const TextStyle(fontSize: 12, color: _secondaryText),
+                      _buildPhoneticTap(
+                        label: '英',
+                        phonetic: word.phoneticUk!,
+                        wordText: word.word,
+                        british: true,
+                        fontSize: 12,
                       ),
                     if (word.phoneticUs != null) ...[
-                      if (word.phoneticUk != null) const SizedBox(height: 4),  // 两个音标之间的间距
-                      Text(
-                        '美  ${word.phoneticUs}',
-                        style: const TextStyle(fontSize: 12, color: _secondaryText),
+                      if (word.phoneticUk != null) const SizedBox(height: 2),  // 两个音标之间的间距
+                      _buildPhoneticTap(
+                        label: '美',
+                        phonetic: word.phoneticUs!,
+                        wordText: word.word,
+                        british: false,
+                        fontSize: 12,
                       ),
                     ],
                   ],
@@ -250,6 +246,37 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
     );
   }
 
+  /// 可点击音标：点击后按对应口音朗读
+  Widget _buildPhoneticTap({
+    required String label,
+    required String phonetic,
+    required String wordText,
+    required bool british,
+    required double fontSize,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () async {
+          final ok = await TtsService.instance.speak(wordText, british: british);
+          if (!ok && british && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('当前语音引擎未安装英式发音，已用美式代替')),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Text(
+            '$label  $phonetic',
+            style: TextStyle(fontSize: fontSize, color: _accentColor, height: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTtsButton(Word word) {
     return StatefulBuilder(
       builder: (context, setBtnState) {
@@ -259,8 +286,7 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
           onTapUp: (_) => setBtnState(() => scale = 1.0),
           onTapCancel: () => setBtnState(() => scale = 1.0),
           onTap: () async {
-            await _tts.stop();
-            await _tts.speak(word.word);
+            await TtsService.instance.speak(word.word);
           },
           child: AnimatedScale(
             scale: scale,

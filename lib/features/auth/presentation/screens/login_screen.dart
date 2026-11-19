@@ -141,13 +141,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // 登录态跳转：放到 initState 里只注册一次，避免 build 重入时叠加回调
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ref.read(authProvider).isLoggedIn) {
+        context.go('/home');
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
-    if (auth.isLoggedIn) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.go('/home');
-      });
-    }
 
     return Scaffold(
       backgroundColor: _bgColor,

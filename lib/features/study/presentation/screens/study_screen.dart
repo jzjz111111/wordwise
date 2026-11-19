@@ -6,9 +6,11 @@ import '../providers/new_word_provider.dart';
 import '../providers/study_provider.dart';
 import '../../domain/entities/word.dart';
 import '../providers/study_stats_provider.dart';
+import '../widgets/word_toggle_button.dart';
 import 'spell_test_screen.dart';
 import 'choice_test_screen.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/tts_service.dart';
 
 class StudyScreen extends ConsumerStatefulWidget {
   final List<Word>? initialWords;
@@ -208,63 +210,11 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                 right: 12,
                 child: Row(
                   children: [
-                    _buildCardIconButton(
-                      icon: Icons.star_border_rounded,
-                      activeIcon: Icons.star,
-                      color: const Color(0xFFFFB74D),
-                      isActive: ref.watch(isFavoriteProvider(word.id!)).value ?? false,
-                      onTap: () {
-                        final isFavorite = ref.read(isFavoriteProvider(word.id!)).value ?? false;
-                        if (isFavorite) {
-                          ref.read(removeFavoriteProvider(word.id!));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('已取消收藏'),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        } else {
-                          ref.read(addFavoriteProvider(word.id!));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('已加入收藏本'),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                    ),
+                    _buildMiniSpeakButton(word.word),
                     const SizedBox(width: 8),
-                    _buildCardIconButton(
-                      icon: Icons.label_important_outline,
-                      activeIcon: Icons.label_important,
-                      color: const Color(0xFFFF8A75),
-                      isActive: ref.watch(isInNewWordProvider(word.id!)).value ?? false,
-                      onTap: () {
-                        final isInNew = ref.read(isInNewWordProvider(word.id!)).value ?? false;
-                        if (isInNew) {
-                          ref.read(removeNewWordProvider(word.id!));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('已移出生词本'),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        } else {
-                          ref.read(addNewWordProvider(word.id!));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('已加入生词本'),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                    ),
+                    FavoriteToggleButton(wordId: word.id!),
+                    const SizedBox(width: 8),
+                    NewWordToggleButton(wordId: word.id!),
                   ],
                 ),
               ),
@@ -354,24 +304,25 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
         ),
         const SizedBox(height: 16),
         if (word.phoneticUk != null)
-          Text(
-            '英  ${word.phoneticUk}',
-            style: const TextStyle(
-              fontSize: 15,
-              color: _secondaryText,
-              height: 1.5,
-            ),
+          _buildPhoneticTap(
+            label: '英',
+            phonetic: word.phoneticUk!,
+            wordText: word.word,
+            british: true,
+            fontSize: 15,
           ),
         if (word.phoneticUs != null)
-          Text(
-            '美  ${word.phoneticUs}',
-            style: const TextStyle(
-              fontSize: 15,
-              color: _secondaryText,
-              height: 1.5,
-            ),
+          _buildPhoneticTap(
+            label: '美',
+            phonetic: word.phoneticUs!,
+            wordText: word.word,
+            british: false,
+            fontSize: 15,
           ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
+        // 🎯 核心发音按钮（大尺寸 + 波纹反馈）
+        _buildMainSpeakButton(word.word),
+        const SizedBox(height: 28),
         Icon(
           Icons.touch_app_outlined,
           size: 20,
@@ -379,6 +330,42 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
         ),
       ],
     );
+  }
+
+  /// 可点击音标：点击后按对应口音朗读
+  Widget _buildPhoneticTap({
+    required String label,
+    required String phonetic,
+    required String wordText,
+    required bool british,
+    required double fontSize,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () async {
+          final ok = await TtsService.instance.speak(wordText, british: british);
+          if (!ok && british && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('当前语音引擎未安装英式发音，已用美式代替')),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Text(
+            '$label  $phonetic',
+            style: TextStyle(fontSize: fontSize, color: _accentColor, height: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 主发音按钮 - 圆形大按钮 + 波纹动效
+  Widget _buildMainSpeakButton(String wordText) {
+    return _MainSpeakButton(wordText: wordText, accentColor: _accentColor);
   }
 
   /// 卡片背面（显示释义 + 例句）
@@ -426,6 +413,39 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 悬浮迷你发音按钮（右上角小喇叭）
+  Widget _buildMiniSpeakButton(String wordText) {
+    return StatefulBuilder(
+      builder: (context, setBtnState) {
+        double scale = 1.0;
+        return GestureDetector(
+          onTapDown: (_) => setBtnState(() => scale = 0.9),
+          onTapUp: (_) => setBtnState(() => scale = 1.0),
+          onTapCancel: () => setBtnState(() => scale = 1.0),
+          onTap: () => TtsService.instance.speak(wordText),
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOutCubic,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _bgColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.volume_up_outlined,
+                color: _accentColor,
+                size: 18,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -617,6 +637,116 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     } catch (e) {
       debugPrint('更新通知失败: $e');
     }
+  }
+}
+
+/// 主发音按钮：独立 State，保证按压缩放与波纹动画状态能真正保存
+class _MainSpeakButton extends StatefulWidget {
+  const _MainSpeakButton({required this.wordText, required this.accentColor});
+
+  final String wordText;
+  final Color accentColor;
+
+  @override
+  State<_MainSpeakButton> createState() => _MainSpeakButtonState();
+}
+
+class _MainSpeakButtonState extends State<_MainSpeakButton> {
+  double _scale = 1.0;
+  bool _isPlaying = false;
+  // 每次按下自增，用于丢弃过期的复位回调
+  int _playToken = 0;
+
+  void _handleTapDown() {
+    setState(() {
+      _scale = 0.92;
+      _isPlaying = true;
+      _playToken++;
+    });
+  }
+
+  void _handleTapUp() {
+    setState(() => _scale = 1.0);
+    final token = _playToken;
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted && token == _playToken) {
+        setState(() => _isPlaying = false);
+      }
+    });
+  }
+
+  void _handleTapCancel() {
+    setState(() {
+      _scale = 1.0;
+      _isPlaying = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _handleTapDown(),
+      onTapUp: (_) => _handleTapUp(),
+      onTapCancel: _handleTapCancel,
+      onTap: () => TtsService.instance.speak(widget.wordText),
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 波纹背景（按下后扩散）
+            if (_isPlaying) ...[
+              ...List.generate(3, (i) {
+                final begin = 0.6 + i * 0.25;
+                final end = 1.4 + i * 0.25;
+                return TweenAnimationBuilder<double>(
+                  tween: Tween(begin: begin, end: end),
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeOut,
+                  builder: (context, value, child) {
+                    // 按当前圈自身的进度计算透明度，范围恒为 0~1
+                    final progress =
+                        ((value - begin) / (end - begin)).clamp(0.0, 1.0).toDouble();
+                    return Container(
+                      width: 72 * value,
+                      height: 72 * value,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: widget.accentColor
+                            .withOpacity(0.15 * (1 - progress)),
+                      ),
+                    );
+                  },
+                );
+              }),
+            ],
+            // 主按钮
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: widget.accentColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.accentColor.withOpacity(0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.volume_up_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
