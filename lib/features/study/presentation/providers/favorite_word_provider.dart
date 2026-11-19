@@ -27,6 +27,8 @@ final addFavoriteProvider = Provider.family<void, int>((ref, wordId) {
   final repo = ref.watch(favoriteWordRepositoryProvider);
   repo.addFavorite(userId, wordId);
   ref.invalidate(favoriteWordListProvider);
+  // 同步刷新按钮状态，否则图标不会变成已收藏
+  ref.invalidate(isFavoriteProvider(wordId));
 });
 
 /// 取消收藏单词
@@ -37,6 +39,8 @@ final removeFavoriteProvider = Provider.family<void, int>((ref, wordId) {
   final repo = ref.watch(favoriteWordRepositoryProvider);
   repo.removeFavorite(userId, wordId);
   ref.invalidate(favoriteWordListProvider);
+  // 同步刷新按钮状态，否则图标不会变回未收藏
+  ref.invalidate(isFavoriteProvider(wordId));
 });
 
 /// 判断单词是否已收藏

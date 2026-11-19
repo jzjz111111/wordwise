@@ -27,6 +27,8 @@ final addNewWordProvider = Provider.autoDispose.family<void, int>((ref, wordId) 
   final repo = ref.watch(newWordRepositoryProvider);
   repo.addNewWord(userId, wordId);
   ref.invalidate(newWordListProvider);
+  // 同步刷新按钮状态，否则图标不会变成已加入
+  ref.invalidate(isInNewWordProvider(wordId));
 });
 
 /// 从生词本移除单词
@@ -37,6 +39,8 @@ final removeNewWordProvider = Provider.autoDispose.family<void, int>((ref, wordI
   final repo = ref.watch(newWordRepositoryProvider);
   repo.removeNewWord(userId, wordId);
   ref.invalidate(newWordListProvider);
+  // 同步刷新按钮状态，否则图标不会变回未加入
+  ref.invalidate(isInNewWordProvider(wordId));
 });
 
 /// 判断单词是否在生词本中

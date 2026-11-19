@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/new_word_provider.dart';
+import 'word_detail_screen.dart';
 import '../../domain/entities/word.dart';
 import '../widgets/word_toggle_button.dart';
 import '../../../../core/services/tts_service.dart';
@@ -65,58 +66,69 @@ class _NewWordScreenState extends ConsumerState<NewWordScreen> {
   }
 
   Widget _buildWordItem(Word word) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return GestureDetector(
+      onTap: () {
+        if (word.id == null) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WordDetailScreen(wordId: word.id!),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  word.word,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: _primaryText,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  word.meaning,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _secondaryText,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-          ),
-          // 🔊 发音按钮
-          _buildSpeakButton(word.word),
-          const SizedBox(width: 8),
-          NewWordToggleButton(
-            wordId: word.id!,
-            bgColor: _cardColor,
-            secondaryTextColor: _secondaryText,
-            afterToggle: () {
-              ref.invalidate(newWordListProvider);
-            },
-          )
-        ],
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    word.word,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: _primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    word.meaning,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _secondaryText,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            // 🔊 发音按钮
+            _buildSpeakButton(word.word),
+            const SizedBox(width: 8),
+            NewWordToggleButton(
+              wordId: word.id!,
+              bgColor: _cardColor,
+              secondaryTextColor: _secondaryText,
+              afterToggle: () {
+                ref.invalidate(newWordListProvider);
+              },
+            )
+          ],
+        ),
       ),
     );
   }

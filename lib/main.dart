@@ -59,7 +59,15 @@ class _AppInitializerState extends State<_AppInitializer> {
     }).catchError((e) => debugPrint('$tag ⚠️ 数据库失败: $e'));
 
     // ColorOS / MIUI 通知权限请求可能永久卡住，绝对不能 await
-    NotificationService().init().catchError((e) => debugPrint('$tag ⚠️ 通知失败: $e'));
+    NotificationService().init().then((_) {
+      // init 完成后，如果用户之前开了提醒，按存储的时间重新调度
+      // （App force-stop 或设备重启后 exact alarm 会被清，需要恢复）
+      NotificationService().rescheduleIfEnabled().catchError((e) {
+        debugPrint('$tag ⚠️ 通知恢复调度失败: $e');
+      });
+    }).catchError((e) {
+      debugPrint('$tag ⚠️ 通知失败: $e');
+    });
     TtsService.instance.init().catchError((e) => debugPrint('$tag ⚠️ TTS 失败: $e'));
   }
 

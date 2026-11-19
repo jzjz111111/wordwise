@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
 import '../../../../core/services/notification_service.dart';
 import '../providers/study_provider.dart';
 
@@ -24,44 +23,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   bool _isNotificationEnabled = false;
   bool _isLoading = false;
+  int _reminderHour = NotificationService.defaultHour;
+  int _reminderMinute = NotificationService.defaultMinute;
 
   @override
   void initState() {
     super.initState();
-    _checkNotificationStatus();
+    _loadInitialState();
   }
 
-  Future<void> _checkNotificationStatus() async {
+  Future<void> _loadInitialState() async {
     final service = NotificationService();
-    final enabled = await service.checkNotificationEnabled();
+    final enabled = await service.getEnabled();
+    final time = await service.getSavedTime();
+    if (!mounted) return;
     setState(() {
       _isNotificationEnabled = enabled;
+      _reminderHour = time.hour;
+      _reminderMinute = time.minute;
     });
   }
 
-  /// 检查是否有精确闹钟权限
-  Future<bool> _hasExactAlarmPermission() async {
-    if (await _isAndroid12OrAbove()) {
-      try {
-        const intent = AndroidIntent(
-          action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-        );
-        return true;
-      } catch (e) {
-        return false;
-      }
-    }
-    return true;
+  String get _reminderTimeLabel {
+    final h = _reminderHour.toString().padLeft(2, '0');
+    final m = _reminderMinute.toString().padLeft(2, '0');
+    return '每天 $h:$m';
   }
 
-  Future<bool> _isAndroid12OrAbove() async {
-    return true;
-  }
-
-  /// 跳转到系统设置，请求精确闹钟权限
+  /// 跳转系统设置，请求精确闹钟权限（Android 12+）
   Future<void> _requestExactAlarmPermission() async {
     try {
-      const AndroidIntent intent = AndroidIntent(
+      const intent = AndroidIntent(
         action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
       );
       await intent.launch();
@@ -73,9 +65,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
         await intent.launch();
       } catch (e2) {
-        if (mounted) {
-          _showManualGuideDialog();
-        }
+        if (mounted) _showManualGuideDialog();
       }
     }
   }
@@ -97,9 +87,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         content: const Text(
           '为了确保每日复习提醒准时送达，请手动前往系统设置授权：\n\n'
-              '1. 打开「设置」→「应用」→「WordWise」\n'
-              '2. 点击「权限」→「闹钟和提醒」\n'
-              '3. 开启「允许设置精确闹钟」',
+          '1. 打开「设置」→「应用」→「WordWise」\n'
+          '2. 点击「权限」→「闹钟和提醒」\n'
+          '3. 开启「允许设置精确闹钟」',
           style: TextStyle(
             color: _secondaryText,
             height: 1.5,
@@ -119,47 +109,171 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  /// 开关每日提醒
   Future<void> _toggleNotification(bool value) async {
     setState(() => _isLoading = true);
-
     final service = NotificationService();
 
     if (value) {
-      final hasPermission = await service.checkNotificationEnabled();
-      if (!hasPermission) {
-        setState(() => _isNotificationEnabled = false);
+      // 1. 检查通知权限
+      final hasNotifyPerm = await service.checkNotificationEnabled();
+      if (!hasNotifyPerm) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('请前往系统设置开启通知权限'),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
+          _showErrorSnack('请前往系统设置开启通知权限');
         }
-        setState(() => _isLoading = false);
+        setState(() {
+          _isNotificationEnabled = false;
+          _isLoading = false;
+        });
         return;
       }
 
-      bool hasExactAlarm = await _hasExactAlarmPermission();
+      // 2. 检查精确闹钟权限（Android 12+）
+      final hasExactAlarm = await service.checkExactAlarmPermission();
+      if (!hasExactAlarm) {
+        if (mounted) {
+          _showNeedExactAlarmDialog(service);
+        }
+        setState(() {
+          _isNotificationEnabled = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 3. 调度
       try {
-        await _requestExactAlarmPermission();
-        setState(() => _isNotificationEnabled = true);
         final stats = await ref.read(todayStatsProvider.future);
         final count = stats['todayReview'] ?? 0;
-        await service.scheduleDailyReminder(count);
+        await service.scheduleDailyReminder(
+          hour: _reminderHour,
+          minute: _reminderMinute,
+          wordCount: count,
+        );
+        if (mounted) {
+          setState(() => _isNotificationEnabled = true);
+          _showSuccessSnack('提醒已开启，$_reminderTimeLabel 准时送达');
+        }
       } catch (e) {
-        _showManualGuideDialog();
-        setState(() => _isNotificationEnabled = false);
+        if (mounted) {
+          _showErrorSnack('设置提醒失败，请稍后重试');
+        }
       }
     } else {
       await service.cancelAll();
-      setState(() => _isNotificationEnabled = false);
+      if (mounted) setState(() => _isNotificationEnabled = false);
     }
 
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  /// 精确闹钟未授权时弹引导弹窗
+  void _showNeedExactAlarmDialog(NotificationService service) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          '需要精确闹钟权限',
+          style: TextStyle(
+            color: _primaryText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: const Text(
+          '系统要求手动授权「精确闹钟」才能保证提醒准时送达。\n\n'
+          '点击下方按钮前往设置开启，开启后回来重新打开开关即可。',
+          style: TextStyle(
+            color: _secondaryText,
+            height: 1.5,
+            fontSize: 14,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消', style: TextStyle(color: _secondaryText)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _requestExactAlarmPermission();
+            },
+            child: const Text('前往设置', style: TextStyle(color: _accentColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 时间选择
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _reminderHour, minute: _reminderMinute),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: _accentColor,
+            onPrimary: Colors.white,
+            surface: _cardColor,
+            onSurface: _primaryText,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      _reminderHour = picked.hour;
+      _reminderMinute = picked.minute;
+    });
+
+    // 如果开关已经打开，改时间后立刻重新调度
+    if (_isNotificationEnabled) {
+      final service = NotificationService();
+      try {
+        final stats = await ref.read(todayStatsProvider.future);
+        final count = stats['todayReview'] ?? 0;
+        await service.scheduleDailyReminder(
+          hour: _reminderHour,
+          minute: _reminderMinute,
+          wordCount: count,
+        );
+        if (mounted) {
+          _showSuccessSnack('提醒时间已更新为 $_reminderTimeLabel');
+        }
+      } catch (e) {
+        if (mounted) _showErrorSnack('更新提醒时间失败');
+      }
+    }
+  }
+
+  void _showSuccessSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: _successColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _showErrorSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -201,44 +315,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _buildSettingItem(
                   icon: Icons.notifications_active_rounded,
                   title: '每日复习提醒',
-                  subtitle: '每天早上8点准时提醒复习',
+                  subtitle: _isNotificationEnabled
+                      ? '已开启，$_reminderTimeLabel 准时送达'
+                      : '关闭中',
                   trailing: _isLoading
                       ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: _accentColor,
-                    ),
-                  )
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _accentColor,
+                          ),
+                        )
                       : Switch(
-                    value: _isNotificationEnabled,
-                    onChanged: _toggleNotification,
-                    activeColor: _accentColor,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                          value: _isNotificationEnabled,
+                          onChanged: _toggleNotification,
+                          activeColor: _accentColor,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                 ),
                 _buildDivider(),
                 _buildSettingItem(
-                  icon: Icons.alarm_rounded,
+                  icon: Icons.schedule_rounded,
                   title: '提醒时间',
-                  subtitle: '每天 08:00',
+                  subtitle: _reminderTimeLabel,
                   trailing: Icon(
                     Icons.chevron_right_rounded,
                     color: _secondaryText.withOpacity(0.6),
                     size: 20,
                   ),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('时间设置开发中...'),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: _pickReminderTime,
                 ),
                 _buildDivider(),
                 _buildSettingItem(
@@ -267,18 +373,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onTap: () async {
                     final service = NotificationService();
                     await service.sendTestNotification();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('测试通知已发送'),
-                          backgroundColor: _successColor,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      );
-                    }
+                    if (mounted) _showSuccessSnack('测试通知已发送');
                   },
                 ),
               ],
@@ -289,7 +384,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// 构建设置项
   Widget _buildSettingItem({
     required IconData icon,
     Color? iconColor,
@@ -368,7 +462,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// 淡色分割线
   Widget _buildDivider() {
     return Padding(
       padding: const EdgeInsets.only(left: 70),
@@ -380,221 +473,3 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 }
-// import 'package:flutter/material.dart';
-// import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:android_intent_plus/android_intent.dart';
-// import 'package:android_intent_plus/flag.dart';
-// import '../../../../core/services/notification_service.dart';
-// import '../providers/study_provider.dart';
-//
-// class SettingsScreen extends ConsumerStatefulWidget {
-//   const SettingsScreen({super.key});
-//
-//   @override
-//   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
-// }
-//
-// class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-//   bool _isNotificationEnabled = false;
-//   bool _isLoading = false;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _checkNotificationStatus();
-//   }
-//
-//   Future<void> _checkNotificationStatus() async {
-//     final service = NotificationService();
-//     final enabled = await service.checkNotificationEnabled();
-//     setState(() {
-//       _isNotificationEnabled = enabled;
-//     });
-//   }
-//
-//   /// 检查是否有精确闹钟权限
-//   Future<bool> _hasExactAlarmPermission() async {
-//     // Android 12+ 才需要检查
-//     if (await _isAndroid12OrAbove()) {
-//       try {
-//         final intent = AndroidIntent(
-//           action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-//         );
-//         // 检查是否有权限的简单方式：通过 canResolveActivity
-//         // 或者直接用 try-catch
-//         return true; // 默认返回 true，后续通过请求来引导
-//       } catch (e) {
-//         return false;
-//       }
-//     }
-//     return true;
-//   }
-//
-//   Future<bool> _isAndroid12OrAbove() async {
-//     // 简单判断：Android 12+ (API 31+)
-//     // 可以通过 platform channel 获取，这里简化处理
-//     return true; // 假设是 Android 12+，实际会走请求流程
-//   }
-//
-//   /// 跳转到系统设置，请求精确闹钟权限
-//   Future<void> _requestExactAlarmPermission() async {
-//     try {
-//       // 方法1：通过 Intent 跳转到系统闹钟权限设置页
-//       final AndroidIntent intent = AndroidIntent(
-//         action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-//       );
-//       await intent.launch();
-//     } catch (e) {
-//       // 方法2：如果上面的 Intent 不可用，跳转到应用设置页
-//       try {
-//         final AndroidIntent intent = AndroidIntent(
-//           action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
-//           data: 'package:com.wordwise.wordwise',
-//         );
-//         await intent.launch();
-//       } catch (e2) {
-//         // 兜底：手动引导用户
-//         if (mounted) {
-//           _showManualGuideDialog();
-//         }
-//       }
-//     }
-//   }
-//
-//   void _showManualGuideDialog() {
-//     showDialog(
-//       context: context,
-//       builder: (context) => AlertDialog(
-//         title: const Text('需要精确闹钟权限'),
-//         content: const Text(
-//             '为了确保每日复习提醒准时送达，请手动前往系统设置：\n\n'
-//                 '1. 打开「设置」→「应用」→「WordWise」\n'
-//                 '2. 点击「权限」→「闹钟和提醒」\n'
-//                 '3. 开启「允许设置精确闹钟」'
-//         ),
-//         actions: [
-//           TextButton(
-//             onPressed: () => Navigator.pop(context),
-//             child: const Text('我知道了'),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Future<void> _toggleNotification(bool value) async {
-//     setState(() => _isLoading = true);
-//
-//     final service = NotificationService();
-//
-//     if (value) {
-//       // 1. 检查通知权限
-//       final hasPermission = await service.checkNotificationEnabled();
-//       if (!hasPermission) {
-//         setState(() => _isNotificationEnabled = false);
-//         if (mounted) {
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             const SnackBar(content: Text('请前往系统设置开启通知权限')),
-//           );
-//         }
-//         setState(() => _isLoading = false);
-//         return;
-//       }
-//
-//       // 2. 检查精确闹钟权限（Android 12+）
-//       // 尝试请求精确闹钟权限
-//       // 注意：这里需要用户手动授权，我们先跳转到设置页引导
-//       bool hasExactAlarm = await _hasExactAlarmPermission();
-//       // 实际上通过 try-catch 检查，这里我们直接请求
-//       try {
-//         await _requestExactAlarmPermission();
-//         // 跳转后用户可能授权了，但我们需要用户返回后重新点击
-//         // 所以这里先保存状态，等用户返回后再验证
-//         setState(() => _isNotificationEnabled = true);
-//         // 尝试安排通知
-//         final stats = await ref.read(todayStatsProvider.future);
-//         final count = stats['todayReview'] ?? 0;
-//         await service.scheduleDailyReminder(count);
-//       } catch (e) {
-//         // 如果失败，提示用户手动授权
-//         _showManualGuideDialog();
-//         setState(() => _isNotificationEnabled = false);
-//       }
-//     } else {
-//       // 关闭通知
-//       await service.cancelAll();
-//       setState(() => _isNotificationEnabled = false);
-//     }
-//
-//     setState(() => _isLoading = false);
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text('⚙️ 设置'),
-//         centerTitle: true,
-//       ),
-//       body: ListView(
-//         children: [
-//           const SizedBox(height: 16),
-//           ListTile(
-//             leading: const Icon(Icons.notifications_active),
-//             title: const Text('每日复习提醒'),
-//             subtitle: const Text('每天早上8点准时提醒您复习单词'),
-//             trailing: _isLoading
-//                 ? const SizedBox(
-//               width: 24,
-//               height: 24,
-//               child: CircularProgressIndicator(strokeWidth: 2),
-//             )
-//                 : Switch(
-//               value: _isNotificationEnabled,
-//               onChanged: _toggleNotification,
-//               activeColor: Colors.blue,
-//             ),
-//           ),
-//           const Divider(),
-//           ListTile(
-//             leading: const Icon(Icons.alarm),
-//             title: const Text('提醒时间'),
-//             subtitle: const Text('每天 08:00'),
-//             trailing: const Icon(Icons.chevron_right),
-//             onTap: () {
-//               ScaffoldMessenger.of(context).showSnackBar(
-//                 const SnackBar(content: Text('时间设置开发中...')),
-//               );
-//             },
-//           ),
-//           const Divider(),
-//           ListTile(
-//             leading: const Icon(Icons.info_outline),
-//             title: const Text('关于精确闹钟'),
-//             subtitle: const Text('精确闹钟需要您手动授权才能准时提醒'),
-//             trailing: const Icon(Icons.chevron_right),
-//             onTap: () {
-//               _showManualGuideDialog();
-//             },
-//           ),
-//           const Divider(),
-//           ListTile(
-//             leading: const Icon(Icons.check_circle, color: Colors.green),
-//             title: const Text('测试通知'),
-//             subtitle: const Text('点击发送一条测试通知'),
-//             trailing: const Icon(Icons.chevron_right),
-//             onTap: () async {
-//               final service = NotificationService();
-//               await service.sendTestNotification();
-//               if (mounted) {
-//                 ScaffoldMessenger.of(context).showSnackBar(
-//                   const SnackBar(content: Text('✅ 测试通知已发送')),
-//                 );
-//               }
-//             },
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }

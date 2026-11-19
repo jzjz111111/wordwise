@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/favorite_word_provider.dart';
+import 'word_detail_screen.dart';
 import '../../domain/entities/word.dart';
 import '../widgets/word_toggle_button.dart';
 import '../../../../core/services/tts_service.dart';
@@ -65,74 +66,85 @@ class _FavoriteWordScreenState extends ConsumerState<FavoriteWordScreen> {
   }
 
   Widget _buildWordItem(Word word) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return GestureDetector(
+      onTap: () {
+        if (word.id == null) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WordDetailScreen(wordId: word.id!),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  word.word,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: _primaryText,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  word.meaning,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _secondaryText,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-          ),
-          // 🔊 发音按钮
-          GestureDetector(
-            onTap: () => TtsService.instance.speak(word.word),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: _accentColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.volume_up_outlined,
-                color: _accentColor,
-                size: 18,
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    word.word,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: _primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    word.meaning,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _secondaryText,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          FavoriteToggleButton(
-            wordId: word.id!,
-            bgColor: _cardColor,
-            secondaryTextColor: _secondaryText,
-            afterToggle: () {
-              // 取消收藏之后，让收藏列表provider失效刷新页面列表
-              ref.invalidate(favoriteWordListProvider);
-            },
-          )
-        ],
+            // 🔊 发音按钮
+            GestureDetector(
+              onTap: () => TtsService.instance.speak(word.word),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: _accentColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.volume_up_outlined,
+                  color: _accentColor,
+                  size: 18,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FavoriteToggleButton(
+              wordId: word.id!,
+              bgColor: _cardColor,
+              secondaryTextColor: _secondaryText,
+              afterToggle: () {
+                // 取消收藏之后，让收藏列表provider失效刷新页面列表
+                ref.invalidate(favoriteWordListProvider);
+              },
+            )
+          ],
+        ),
       ),
     );
   }

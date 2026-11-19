@@ -627,13 +627,20 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     ref.read(studyStateProvider.notifier).rateWord(quality);
   }
 
-  /// 更新每日复习通知内容
+  /// 更新每日复习通知内容（沿用用户上次设置的时间）
   Future<void> _updateNotification() async {
     try {
       final service = NotificationService();
       final stats = await ref.read(todayStatsProvider.future);
       final count = stats['todayReview'] ?? 0;
-      await service.scheduleDailyReminder(count);
+      final enabled = await service.getEnabled();
+      if (!enabled) return;
+      final time = await service.getSavedTime();
+      await service.scheduleDailyReminder(
+        hour: time.hour,
+        minute: time.minute,
+        wordCount: count,
+      );
     } catch (e) {
       debugPrint('更新通知失败: $e');
     }
