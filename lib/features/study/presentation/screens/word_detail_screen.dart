@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/tts_service.dart';
+import '../../../profile/domain/services/achievement_service.dart';
+import '../../../profile/presentation/providers/achievement_provider.dart';
+import '../../../profile/presentation/widgets/achievement_toast.dart';
+import '../../../../main.dart' show rootNavigatorKey;
 import '../providers/word_detail_provider.dart';
 import '../providers/wrong_word_provider.dart';
 import '../providers/study_provider.dart';
+import '../providers/study_stats_provider.dart';
 import '../../domain/entities/study_record.dart';
 import '../../domain/entities/word.dart';
 
@@ -488,6 +493,11 @@ class WordDetailScreen extends ConsumerWidget {
 
               ref.invalidate(wrongWordsProvider);
               ref.invalidate(wordDetailProvider(wordId));
+              ref.invalidate(totalStudyStatsProvider);
+              ref.invalidate(achievementListProvider);
+              ref.invalidate(unlockedCountProvider);
+              // 详情页也可能触发成就
+              _checkAndShowAchievements();
 
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
@@ -625,5 +635,18 @@ class WordDetailScreen extends ConsumerWidget {
     if (target == today.add(const Duration(days: 1))) return '明天';
     if (target == today.subtract(const Duration(days: 1))) return '昨天';
     return '${date.month}/${date.day}';
+  }
+}
+
+/// 成就解锁检查（详情页用）
+Future<void> _checkAndShowAchievements() async {
+  try {
+    final context = rootNavigatorKey.currentContext;
+    final newlyUnlocked = await AchievementService.instance.checkAndUnlock();
+    if (newlyUnlocked.isNotEmpty && context != null) {
+      AchievementToast.show(context, newlyUnlocked);
+    }
+  } catch (e) {
+    debugPrint('详情页成就检查失败: $e');
   }
 }

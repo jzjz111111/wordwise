@@ -1,8 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../profile/domain/services/achievement_service.dart';
+import '../../../profile/presentation/providers/achievement_provider.dart';
+import '../../../profile/presentation/widgets/achievement_toast.dart';
+import '../../../../main.dart' show rootNavigatorKey;
 import '../../domain/entities/word.dart';
 import '../../domain/repositories/word_repository.dart';
 import '../../data/repositories/word_repository_impl.dart';
+import 'study_stats_provider.dart';
 import 'word_category_provider.dart';
 
 /// 提供 WordRepository 实例（全局单例）
@@ -146,6 +151,10 @@ class StudyNotifier extends StateNotifier<StudyState> {
   }
 
   /// 后台静默写入学习结果（本地+云端）
+  ///
+  /// 写入成功后立刻：
+  ///   1. invalidate 首页统计 + 成就相关 provider（让 UI 实时刷新）
+  ///   2. 检查是否解锁了新成就，解锁就弹 Toast
   Future<void> _saveWordResult(int wordId, int quality) async {
     try {
       final repository = ref.read(wordRepositoryProvider);
@@ -153,12 +162,36 @@ class StudyNotifier extends StateNotifier<StudyState> {
         wordId: wordId,
         quality: quality,
       );
-      // 本地写入完成，主动让首页数据失效
+
+      // 本地写入完成，立刻让所有受影响的 provider 失效，UI 下次 watch 时自动重算
       ref.invalidate(todayWordsProvider);
       ref.invalidate(todayStatsProvider);
+      ref.invalidate(totalStudyStatsProvider);
+      ref.invalidate(achievementListProvider);
+      ref.invalidate(unlockedCountProvider);
+
+      // 检查新成就（fire-and-forget，不阻塞这次学习）
+      _checkAchievements();
     } catch (e) {
       // 写入失败静默处理，不打断用户学习流程
       debugPrint('单词学习结果写入失败: $e');
+    }
+  }
+
+  /// 异步检查成就解锁，解锁了就用全局 navigatorKey 弹 Toast
+  Future<void> _checkAchievements() async {
+    try {
+      final context = rootNavigatorKey.currentContext;
+      final newlyUnlocked = await AchievementService.instance.checkAndUnlock();
+      if (newlyUnlocked.isNotEmpty && context != null) {
+        AchievementToast.show(context, newlyUnlocked);
+      }
+
+      // 刷新一次，让成就页立刻能看到新增的解锁
+      ref.invalidate(achievementListProvider);
+      ref.invalidate(unlockedCountProvider);
+    } catch (e) {
+      debugPrint('成就检查失败: $e');
     }
   }
 

@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../profile/domain/services/achievement_service.dart';
+import '../../../profile/presentation/providers/achievement_provider.dart';
+import '../../../profile/presentation/widgets/achievement_toast.dart';
+import '../../../../main.dart' show rootNavigatorKey;
 import '../../domain/entities/word.dart';
 import '../../domain/repositories/favorite_word_repository.dart';
 import '../../data/repositories/favorite_word_repository_impl.dart';
-import 'word_category_provider.dart';
 
 /// 仓库实例
 final favoriteWordRepositoryProvider = Provider<FavoriteWordRepository>((ref) {
@@ -27,9 +31,25 @@ final addFavoriteProvider = Provider.family<void, int>((ref, wordId) {
   final repo = ref.watch(favoriteWordRepositoryProvider);
   repo.addFavorite(userId, wordId);
   ref.invalidate(favoriteWordListProvider);
-  // 同步刷新按钮状态，否则图标不会变成已收藏
   ref.invalidate(isFavoriteProvider(wordId));
+  // 收藏数变化，成就页也要刷新，同时检查是否解锁了"词汇收藏家"
+  ref.invalidate(achievementListProvider);
+  ref.invalidate(unlockedCountProvider);
+  _checkFavoriteAchievements();
 });
+
+/// 检查收藏相关成就解锁
+Future<void> _checkFavoriteAchievements() async {
+  try {
+    final context = rootNavigatorKey.currentContext;
+    final newlyUnlocked = await AchievementService.instance.checkAndUnlock();
+    if (newlyUnlocked.isNotEmpty && context != null) {
+      AchievementToast.show(context, newlyUnlocked);
+    }
+  } catch (e) {
+    debugPrint('收藏成就检查失败: $e');
+  }
+}
 
 /// 取消收藏单词
 final removeFavoriteProvider = Provider.family<void, int>((ref, wordId) {

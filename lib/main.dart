@@ -7,6 +7,9 @@ import 'core/router/app_router.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/tts_service.dart';
 
+/// 全局导航 key，供 Provider / Service 里拿到 BuildContext 弹 Toast 等
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
   runApp(const ProviderScope(child: _AppInitializer()));
 }
