@@ -65,8 +65,8 @@ dependencies:
   dotenv: ^4.2.0
   android_intent_plus: ^5.0.0
   image_picker: ^1.2.3
-  flutter_deepseek: ^0.1.1
   shared_preferences: ^2.5.5
+  flutter_timezone: ^5.1.1
 
 dev_dependencies:
   flutter_test:
@@ -145,3 +145,4 @@ flutter:
     - assets/dicts/CET4.json
     - assets/dicts/CET6.json
     - assets/dicts/KaoYan.json
+    - .env

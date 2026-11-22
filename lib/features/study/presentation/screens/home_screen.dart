@@ -1,5 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../profile/presentation/screens/achievement_screen.dart';
+import '../../../profile/presentation/widgets/achievement_toast.dart';
+import '../../../profile/domain/services/achievement_service.dart';
+import '../../../profile/presentation/providers/achievement_provider.dart';
 import '../../../profile/presentation/screens/word_library_screen.dart';
 import '../../domain/entities/daily_sentence.dart';
 import '../../domain/entities/study_stats.dart';
@@ -651,13 +656,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     );
                     break;
                   case '成就徽章':
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('成就系统即将上线'),
-                        duration: const Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AchievementScreen()),
                     );
                     break;
                 }
@@ -785,8 +786,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ========== 背新词数量选择弹窗 ==========
   void _showCountPicker(BuildContext context, WidgetRef ref) {
-    final List<int> presetCounts = [10, 20, 30, 40, 50,60,70,80];
-    int selectedCount = 10;
+    final List<int> presetCounts = [10, 20, 30, 40, 50, 60, 70, 80];
+    int selectedIndex = 0; // 默认选 10
 
     showDialog(
       context: context,
@@ -806,7 +807,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '$selectedCount 个',
+                    '${presetCounts[selectedIndex]} 个',
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
@@ -814,42 +815,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // 滚轮选择器
                   SizedBox(
-                    height: 180,
-                    width: 300,
-                    child: SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: presetCounts.map((count) {
-                          final isSelected = selectedCount == count;
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                selectedCount = count;
-                              });
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOutCubic,
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-                              decoration: BoxDecoration(
-                                color: isSelected ? _accentColor : _accentBg,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : _primaryText,
-                                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                                  fontSize: 28,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                    height: 160,
+                    width: 280,
+                    child: CupertinoPicker(
+                      backgroundColor: Colors.transparent,
+                      itemExtent: 48,
+                      useMagnifier: true,
+                      magnification: 1.15,
+                      onSelectedItemChanged: (index) {
+                        setState(() => selectedIndex = index);
+                      },
+                      scrollController: FixedExtentScrollController(
+                        initialItem: selectedIndex,
                       ),
+                      children: presetCounts.map((count) {
+                        return Center(
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w500,
+                              color: _primaryText,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ],
@@ -871,7 +863,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   onPressed: () {
                     Navigator.pop(context);
-                    _startLearningNewWords(context, ref, selectedCount);
+                    _startLearningNewWords(context, ref, presetCounts[selectedIndex]);
                   },
                   child: const Text('开始背词'),
                 ),

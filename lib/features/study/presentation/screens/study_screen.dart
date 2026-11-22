@@ -1,6 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../profile/domain/services/achievement_service.dart';
+import '../../../profile/presentation/widgets/achievement_toast.dart';
+import '../../../profile/presentation/providers/achievement_provider.dart';
 import '../providers/favorite_word_provider.dart';
 import '../providers/new_word_provider.dart';
 import '../providers/study_provider.dart';
@@ -114,7 +117,22 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       ref.invalidate(todayStatsProvider);
       ref.invalidate(todayWordsProvider);
       ref.invalidate(totalStudyStatsProvider); // 如果需要总统计也更新
+      ref.invalidate(achievementListProvider);
+      ref.invalidate(unlockedCountProvider);
       await _updateNotification();
+
+      // 检查成就解锁
+      try {
+        final newlyUnlocked = await AchievementService.instance.checkAndUnlock();
+        if (newlyUnlocked.isNotEmpty && mounted) {
+          AchievementToast.show(context, newlyUnlocked);
+          ref.invalidate(achievementListProvider);
+          ref.invalidate(unlockedCountProvider);
+        }
+      } catch (e) {
+        debugPrint('成就检查失败: $e');
+      }
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/database/database_helper.dart';
+import 'core/config/env.dart';
 import 'core/router/app_router.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/tts_service.dart';
@@ -32,6 +33,9 @@ class _AppInitializerState extends State<_AppInitializer> {
   Future<void> _doInitialize() async {
     const tag = '📦 [Init]';
     debugPrint('$tag 开始初始化...');
+
+    // 先加载 .env（AI Key、模型名等），失败不影响启动
+    await Env.load();
 
     // 只有 Supabase 需要阻塞（登录态依赖它）
     debugPrint('$tag Step 1: Supabase');

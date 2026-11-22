@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/tts_service.dart';
 import '../../../../core/services/ai_service.dart';
+import '../../../../core/config/env.dart';
 import '../providers/choice_test_provider.dart';
 import '../../domain/entities/word.dart';
 import 'package:flutter/services.dart';
@@ -657,11 +658,11 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
 
   // ==================== AI 功能 ====================
   void _showAIStory(BuildContext context, List<String> words) {
-    const apiKey = String.fromEnvironment('DEEPSEEK_API_KEY');
+    final apiKey = Env.aiApiKey;
     if (apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('请配置 DEEPSEEK_API_KEY 环境变量'),
+          content: const Text('请先在 .env 文件里配置 AI_API_KEY'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -669,7 +670,7 @@ class _ChoiceTestScreenState extends ConsumerState<ChoiceTestScreen> {
       return;
     }
 
-    final aiService = AIService(apiKey: apiKey);
+    final aiService = AIService(apiKey: apiKey, model: Env.aiModel);
 
     showDialog(
       context: context,
@@ -714,7 +715,10 @@ class _AIStoryDialogState extends State<_AIStoryDialog> {
 
   Future<void> _generateStory() async {
     try {
-      await for (final token in widget.aiService.generateStory(widget.words)) {
+      await for (final token in widget.aiService.generateMemory(
+        words: widget.words,
+        promptType: 'per_word',
+      )) {
         if (mounted) {
           setState(() {
             _story += token;

@@ -34,6 +34,23 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- flutter_local_notifications 的定时通知接收器。
+             插件自身的 manifest 只声明了权限，没有声明这两个 Receiver，
+             必须由 App 声明，否则 AlarmManager 到点后广播无人接收，
+             表现就是「调度成功但永远不弹通知」。 -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <!-- 禁用 Impeller，回退到 Skia 渲染。
              该设备上 Vulkan 后端会持续调度帧，导致 ViewRootImpl(VRI) 日志死循环、耗电发热。
              若出现黑屏，先注释下方三行恢复 Impeller 验证是否为 Skia 兼容性问题 -->
